@@ -44,7 +44,7 @@ export function Hero({ content }: HeroProps) {
     video.muted = true
     const play = () => {
       void video.play().catch(() => {
-        // Autoplay may be blocked; poster image remains as fallback.
+        // Autoplay may be blocked on some browsers.
       })
     }
     play()
@@ -127,13 +127,12 @@ export function Hero({ content }: HeroProps) {
               {hasVideo && !reduce ? (
                 <video
                   ref={videoRef}
-                  className="h-full w-full object-cover"
+                  className="h-full w-full bg-bg object-cover"
                   autoPlay
                   muted
                   loop
                   playsInline
                   preload="auto"
-                  poster={content.imageUrl}
                   aria-label="Kocoon Wellness Spa atmosphere video"
                 >
                   <source src={content.videoUrl} type="video/mp4" />
