@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ImagePlus, Loader2, X } from 'lucide-react'
 import { isSupabaseConfigured } from '@/lib/supabase'
-import { uploadSiteImage, type UploadFolder } from '@/lib/storage'
+import { isDurableImageUrl, uploadSiteImage, type UploadFolder } from '@/lib/storage'
 import { cn } from '@/lib/utils'
 
 interface ImageUploadProps {
@@ -9,7 +9,6 @@ interface ImageUploadProps {
   onChange: (url: string) => void
   label?: string
   className?: string
-  /** Storage folder under kocoon-wellness-spa/ */
   folder?: UploadFolder
 }
 
@@ -40,23 +39,28 @@ export function ImageUpload({
       setError('Image is too large. Please use a file under 10MB.')
       return
     }
+    if (!isSupabaseConfigured()) {
+      setError(
+        'Supabase keys missing. Add VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY, run storage SQL, then redeploy.',
+      )
+      return
+    }
 
     setBusy(true)
     setError('')
-    setHint('')
+    setHint('Uploading to Supabase Storage…')
     try {
       const result = await uploadSiteImage(file, folder)
+      if (!isDurableImageUrl(result.url)) {
+        throw new Error('Upload did not return a permanent URL.')
+      }
       onChange(result.url)
       setUrlDraft(result.url)
-      setHint(
-        result.via === 'supabase'
-          ? 'Saved to Supabase Storage (permanent URL).'
-          : isSupabaseConfigured()
-            ? 'Saved locally — Storage upload failed. Re-run 002_kocoon_storage_bucket.sql and check env keys.'
-            : 'Saved locally — add VITE_SUPABASE_URL + ANON_KEY and run the storage SQL for permanent URLs.',
-      )
-    } catch {
-      setError('Could not upload that image. Try another file or paste a URL.')
+      setHint('Saved to Supabase Storage — this image will stay after refresh.')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Upload failed'
+      setError(message)
+      setHint('')
     } finally {
       setBusy(false)
       if (inputRef.current) inputRef.current.value = ''
@@ -98,7 +102,7 @@ export function ImageUpload({
           className="flex h-40 w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-bg text-muted transition hover:border-gold/40 hover:text-gold disabled:opacity-60"
         >
           {busy ? <Loader2 className="h-6 w-6 animate-spin" /> : <ImagePlus className="h-6 w-6" />}
-          <span className="text-sm">{busy ? 'Uploading…' : 'Upload or choose image'}</span>
+          <span className="text-sm">{busy ? 'Uploading to Storage…' : 'Upload image'}</span>
         </button>
       )}
       <input
@@ -111,18 +115,23 @@ export function ImageUpload({
       <div className="flex gap-2">
         <input
           type="url"
-          value={urlDraft.startsWith('data:') ? '' : urlDraft}
+          value={urlDraft.startsWith('data:') || urlDraft.startsWith('blob:') ? '' : urlDraft}
           onChange={(e) => setUrlDraft(e.target.value)}
-          placeholder="Or paste image URL"
+          placeholder="Or paste a permanent image URL"
           className="admin-input flex-1"
         />
         <button
           type="button"
           className="rounded-md border border-border px-3 text-sm text-cream hover:border-gold/40"
           onClick={() => {
-            if (!urlDraft.trim() || urlDraft.startsWith('data:')) return
-            onChange(urlDraft.trim())
+            const next = urlDraft.trim()
+            if (!next || next.startsWith('data:') || next.startsWith('blob:')) {
+              setError('Paste a normal https:// image URL, or use Upload.')
+              return
+            }
+            onChange(next)
             setHint('Using pasted URL.')
+            setError('')
           }}
         >
           Apply
@@ -131,9 +140,8 @@ export function ImageUpload({
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
       {hint ? <p className="text-xs text-gold/90">{hint}</p> : null}
       <p className="text-xs text-muted">
-        Files go to Supabase bucket <code className="text-gold/80">kocoon-media</code> under{' '}
-        <code className="text-gold/80">kocoon-wellness-spa/{folder}/</code> — other sites are not
-        affected.
+        Production flow: upload → Supabase bucket <code className="text-gold/80">kocoon-media</code> →
+        public URL on the site. Placeholders are only temporary until you upload.
       </p>
     </div>
   )

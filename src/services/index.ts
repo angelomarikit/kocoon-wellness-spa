@@ -10,7 +10,9 @@ import {
   mockTestimonials,
 } from '@/data/mockData'
 import { SITE_SLUG } from '@/lib/constants'
+import { isDurableImageUrl } from '@/lib/storage'
 import { createId, delay, loadStore, saveStore } from '@/lib/store'
+import { canUseSupabaseCms, supabaseCms } from '@/services/supabaseCms'
 import type {
   DashboardStats,
   FAQItem,
@@ -30,8 +32,20 @@ function assertSiteScope(siteIdOrSlug: string) {
   }
 }
 
+function isUuid(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+}
+
 export const siteService = {
   async getSettings(): Promise<SiteSettings> {
+    if (canUseSupabaseCms()) {
+      try {
+        const remote = await supabaseCms.getSettings()
+        if (remote) return remote
+      } catch (err) {
+        console.warn('[cms] settings remote read failed', err)
+      }
+    }
     await delay()
     const settings = loadStore('settings', mockSettings)
     let changed = false
@@ -130,11 +144,28 @@ export const siteService = {
       throw new Error('Business slug is locked. Unlock intentionally in Settings to change it.')
     }
     const next = { ...current, ...patch, updatedAt: new Date().toISOString() }
+    if (canUseSupabaseCms()) {
+      try {
+        const saved = await supabaseCms.saveSettings(next)
+        saveStore('settings', saved)
+        return saved
+      } catch (err) {
+        console.warn('[cms] settings remote save failed', err)
+      }
+    }
     saveStore('settings', next)
     return next
   },
 
   async getSEO(): Promise<SEOSettings> {
+    if (canUseSupabaseCms()) {
+      try {
+        const remote = await supabaseCms.getSEO()
+        if (remote) return remote
+      } catch (err) {
+        console.warn('[cms] seo remote read failed', err)
+      }
+    }
     await delay()
     const seo = loadStore('seo', mockSEO)
     if (
@@ -152,40 +183,67 @@ export const siteService = {
     await delay()
     const current = loadStore('seo', mockSEO)
     const next = { ...current, ...patch, updatedAt: new Date().toISOString() }
+    if (canUseSupabaseCms()) {
+      try {
+        const saved = await supabaseCms.saveSEO(next)
+        saveStore('seo', saved)
+        return saved
+      } catch (err) {
+        console.warn('[cms] seo remote save failed', err)
+      }
+    }
     saveStore('seo', next)
     return next
   },
 
   async getPageContent(): Promise<PageContent> {
+    if (canUseSupabaseCms()) {
+      try {
+        const remote = await supabaseCms.getPageContent()
+        if (remote) return remote
+      } catch (err) {
+        console.warn('[cms] page content remote read failed', err)
+      }
+    }
     await delay()
     const content = loadStore('pageContent', mockPageContent)
     let changed = false
+    // Only replace true placeholders — never overwrite uploaded Storage URLs
     if (
-      !content.hero.imageUrl ||
+      !isDurableImageUrl(content.hero.imageUrl) ||
       content.hero.imageUrl.includes('unsplash.com') ||
-      content.hero.imageUrl.includes('photo-1540555700478') ||
       content.hero.imageUrl === '/hero.jpg'
     ) {
-      content.hero.imageUrl = '/hero-poster.jpg'
-      changed = true
+      if (!content.hero.imageUrl.includes('supabase') && !content.hero.imageUrl.includes('kocoon-media')) {
+        content.hero.imageUrl = '/hero-poster.jpg'
+        changed = true
+      }
     }
-    if (!content.welcome.imageUrl || content.welcome.imageUrl.includes('unsplash.com')) {
-      content.welcome.imageUrl = '/spa/spa-3.jpg'
-      changed = true
+    if (!isDurableImageUrl(content.welcome.imageUrl) || content.welcome.imageUrl.includes('unsplash.com')) {
+      if (!content.welcome.imageUrl.includes('supabase') && !content.welcome.imageUrl.includes('kocoon-media')) {
+        content.welcome.imageUrl = '/spa/spa-3.jpg'
+        changed = true
+      }
     }
-    if (!content.about.imageUrl || content.about.imageUrl.includes('unsplash.com')) {
-      content.about.imageUrl = '/spa/spa-1.jpg'
-      changed = true
+    if (!isDurableImageUrl(content.about.imageUrl) || content.about.imageUrl.includes('unsplash.com')) {
+      if (!content.about.imageUrl.includes('supabase') && !content.about.imageUrl.includes('kocoon-media')) {
+        content.about.imageUrl = '/spa/spa-1.jpg'
+        changed = true
+      }
     }
     if (
-      !content.experience.backgroundImageUrl ||
+      !isDurableImageUrl(content.experience.backgroundImageUrl) ||
       content.experience.backgroundImageUrl.includes('unsplash.com')
     ) {
-      content.experience.backgroundImageUrl = '/spa/spa-2.jpg'
-      changed = true
+      if (
+        !content.experience.backgroundImageUrl.includes('supabase') &&
+        !content.experience.backgroundImageUrl.includes('kocoon-media')
+      ) {
+        content.experience.backgroundImageUrl = '/spa/spa-2.jpg'
+        changed = true
+      }
     }
     if (changed) saveStore('pageContent', content)
-    // Ensure hero video field exists for older local CMS data
     if (!('videoUrl' in content.hero) || content.hero.videoUrl === undefined) {
       content.hero.videoUrl = '/hero.mp4'
       saveStore('pageContent', content)
@@ -197,6 +255,15 @@ export const siteService = {
     await delay()
     const current = loadStore('pageContent', mockPageContent)
     const next = { ...current, ...patch, updatedAt: new Date().toISOString() }
+    if (canUseSupabaseCms()) {
+      try {
+        const saved = await supabaseCms.savePageContent(next)
+        saveStore('pageContent', saved)
+        return saved
+      } catch (err) {
+        console.warn('[cms] page content remote save failed', err)
+      }
+    }
     saveStore('pageContent', next)
     return next
   },
@@ -221,13 +288,26 @@ export const siteService = {
 
 export const serviceService = {
   async list(includeInactive = false): Promise<Service[]> {
+    if (canUseSupabaseCms()) {
+      try {
+        const remote = await supabaseCms.listServices(includeInactive)
+        if (remote && remote.length > 0) return remote
+      } catch (err) {
+        console.warn('[cms] services remote read failed', err)
+      }
+    }
     await delay()
     let items = loadStore('services', mockServices)
+    // Never wipe rows that already have uploaded Storage images
+    const hasUploads = items.some(
+      (s) => s.imageUrl.includes('kocoon-media') || s.imageUrl.includes('supabase'),
+    )
     const needsMenuRefresh =
-      items.some((s) => s.imageUrl.includes('unsplash.com')) ||
-      items.some((s) => s.slug === 'swedish-massage' || s.category === 'Massage') ||
-      items.some((s) => s.durationLabel === undefined) ||
-      !items.some((s) => s.slug === 'kws-signature-massage')
+      !hasUploads &&
+      (items.some((s) => s.imageUrl.includes('unsplash.com')) ||
+        items.some((s) => s.slug === 'swedish-massage' || s.category === 'Massage') ||
+        items.some((s) => s.durationLabel === undefined) ||
+        !items.some((s) => s.slug === 'kws-signature-massage'))
     if (needsMenuRefresh) {
       items = structuredClone(mockServices)
       saveStore('services', items)
@@ -248,6 +328,10 @@ export const serviceService = {
   },
 
   async create(input: Omit<Service, 'id' | 'siteId' | 'createdAt' | 'updatedAt'>): Promise<Service> {
+    if (canUseSupabaseCms()) {
+      const saved = await supabaseCms.upsertService(input)
+      return saved
+    }
     await delay()
     const items = loadStore('services', mockServices)
     const item: Service = {
@@ -263,6 +347,14 @@ export const serviceService = {
   },
 
   async update(id: string, patch: Partial<Service>): Promise<Service> {
+    if (canUseSupabaseCms()) {
+      const current = (await supabaseCms.listServices(true))?.find((s) => s.id === id)
+      const base = current ?? loadStore('services', mockServices).find((s) => s.id === id)
+      if (!base) throw new Error('Service not found')
+      const merged = { ...base, ...patch }
+      const { id: _i, siteId: _s, createdAt: _c, updatedAt: _u, ...rest } = merged
+      return supabaseCms.upsertService({ ...rest, id: isUuid(id) ? id : undefined })
+    }
     await delay()
     const items = loadStore('services', mockServices)
     const idx = items.findIndex((s) => s.id === id)
@@ -306,12 +398,20 @@ export const serviceService = {
 
 export const staffService = {
   async list(includeInactive = false): Promise<StaffMember[]> {
+    if (canUseSupabaseCms()) {
+      try {
+        const remote = await supabaseCms.listStaff(includeInactive)
+        if (remote && remote.length > 0) return remote
+      } catch (err) {
+        console.warn('[cms] staff remote read failed', err)
+      }
+    }
     await delay()
     let items = loadStore('staff', mockStaff)
-    // Clear expired blob: preview URLs from earlier uploads (they break after reload)
+    // Drop broken blob/data previews — placeholders remain until a Storage upload
     let changed = false
     items = items.map((s) => {
-      if (s.imageUrl?.startsWith('blob:')) {
+      if (s.imageUrl?.startsWith('blob:') || s.imageUrl?.startsWith('data:')) {
         changed = true
         return { ...s, imageUrl: '' }
       }
@@ -324,13 +424,16 @@ export const staffService = {
   },
 
   async getById(id: string): Promise<StaffMember | undefined> {
-    await delay()
-    return loadStore('staff', mockStaff).find((s) => s.id === id)
+    const all = await this.list(true)
+    return all.find((s) => s.id === id)
   },
 
   async create(
     input: Omit<StaffMember, 'id' | 'siteId' | 'createdAt' | 'updatedAt'>,
   ): Promise<StaffMember> {
+    if (canUseSupabaseCms()) {
+      return supabaseCms.upsertStaff(input)
+    }
     await delay()
     const items = loadStore('staff', mockStaff)
     const item: StaffMember = {
@@ -346,6 +449,16 @@ export const staffService = {
   },
 
   async update(id: string, patch: Partial<StaffMember>): Promise<StaffMember> {
+    if (canUseSupabaseCms()) {
+      const current = (await this.list(true)).find((s) => s.id === id)
+      if (!current) throw new Error('Staff member not found')
+      const merged = { ...current, ...patch }
+      const { id: _i, siteId: _s, createdAt: _c, updatedAt: _u, ...rest } = merged
+      return supabaseCms.upsertStaff({
+        ...rest,
+        id: isUuid(id) ? id : undefined,
+      })
+    }
     await delay()
     const items = loadStore('staff', mockStaff)
     const idx = items.findIndex((s) => s.id === id)
@@ -356,6 +469,10 @@ export const staffService = {
   },
 
   async remove(id: string): Promise<void> {
+    if (canUseSupabaseCms() && isUuid(id)) {
+      await supabaseCms.deleteStaff(id)
+      return
+    }
     await delay()
     saveStore(
       'staff',
@@ -371,32 +488,44 @@ export const staffService = {
       if (item) item.sortOrder = index + 1
     })
     saveStore('staff', items)
+    if (canUseSupabaseCms()) {
+      for (const id of orderedIds) {
+        const item = items.find((s) => s.id === id)
+        if (!item || !isUuid(id)) continue
+        const { id: _i, siteId: _s, createdAt: _c, updatedAt: _u, ...rest } = item
+        await supabaseCms.upsertStaff({ ...rest, id })
+      }
+    }
     return items.sort((a, b) => a.sortOrder - b.sortOrder)
   },
 }
 
 export const galleryService = {
   async list(includeInactive = false): Promise<GalleryItem[]> {
+    if (canUseSupabaseCms()) {
+      try {
+        const remote = await supabaseCms.listGallery(includeInactive)
+        if (remote && remote.length > 0) return remote
+      } catch (err) {
+        console.warn('[cms] gallery remote read failed', err)
+      }
+    }
     await delay()
     let items = loadStore('gallery', mockGallery)
-    // Clear expired blob: preview URLs from earlier uploads
-    if (items.some((g) => g.imageUrl?.startsWith('blob:'))) {
+    // Clear broken preview URLs only — do NOT wipe the whole gallery on refresh
+    if (items.some((g) => g.imageUrl?.startsWith('blob:') || g.imageUrl?.startsWith('data:'))) {
       items = items.map((g) =>
-        g.imageUrl?.startsWith('blob:') ? { ...g, imageUrl: '' } : g,
+        g.imageUrl?.startsWith('blob:') || g.imageUrl?.startsWith('data:')
+          ? { ...g, imageUrl: '' }
+          : g,
       )
       saveStore('gallery', items)
     }
-    const urls = items.map((g) => g.imageUrl)
-    const hasDuplicates = urls.length !== new Set(urls).size
-    const missingNewPhotos = !urls.some((u) => u.includes('spa-4') || u.includes('spa-7'))
-    const missingAspect = items.some((g) => !g.aspect)
-    // Refresh gallery when legacy stock/duplicates are present
-    if (
-      items.some((g) => g.imageUrl.includes('unsplash.com')) ||
-      hasDuplicates ||
-      missingNewPhotos ||
-      missingAspect
-    ) {
+    // One-time placeholder upgrade only when still on Unsplash and no Storage uploads yet
+    const hasUploads = items.some(
+      (g) => g.imageUrl.includes('kocoon-media') || g.imageUrl.includes('supabase'),
+    )
+    if (!hasUploads && items.some((g) => g.imageUrl.includes('unsplash.com'))) {
       items = structuredClone(mockGallery)
       saveStore('gallery', items)
     }
@@ -408,6 +537,9 @@ export const galleryService = {
   async create(
     input: Omit<GalleryItem, 'id' | 'siteId' | 'createdAt'>,
   ): Promise<GalleryItem> {
+    if (canUseSupabaseCms()) {
+      return supabaseCms.upsertGallery(input)
+    }
     await delay()
     const items = loadStore('gallery', mockGallery)
     const item: GalleryItem = {
@@ -422,6 +554,16 @@ export const galleryService = {
   },
 
   async update(id: string, patch: Partial<GalleryItem>): Promise<GalleryItem> {
+    if (canUseSupabaseCms()) {
+      const current = (await this.list(true)).find((g) => g.id === id)
+      if (!current) throw new Error('Gallery item not found')
+      const merged = { ...current, ...patch }
+      const { id: _i, siteId: _s, createdAt: _c, ...rest } = merged
+      return supabaseCms.upsertGallery({
+        ...rest,
+        id: isUuid(id) ? id : undefined,
+      })
+    }
     await delay()
     const items = loadStore('gallery', mockGallery)
     const idx = items.findIndex((g) => g.id === id)
@@ -432,6 +574,10 @@ export const galleryService = {
   },
 
   async remove(id: string): Promise<void> {
+    if (canUseSupabaseCms() && isUuid(id)) {
+      await supabaseCms.deleteGallery(id)
+      return
+    }
     await delay()
     saveStore(
       'gallery',

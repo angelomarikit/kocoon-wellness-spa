@@ -155,9 +155,15 @@ function StaffForm({
     e.preventDefault()
     setSaving(true)
     try {
+      if (!form.imageUrl || form.imageUrl.startsWith('blob:') || form.imageUrl.startsWith('data:')) {
+        toast.error('Upload a photo to Supabase Storage first (temporary previews are not saved).')
+        return
+      }
       if (initial) await staffService.update(initial.id, form)
       else await staffService.create(form)
       onSaved()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save staff')
     } finally {
       setSaving(false)
     }

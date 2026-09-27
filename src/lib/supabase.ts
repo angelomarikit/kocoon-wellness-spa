@@ -38,12 +38,17 @@ export async function resolveKocoonSiteId(): Promise<string | null> {
   const sb = getSupabaseClient()
   if (!sb) return null
 
-  const { data, error } = await sb.rpc('cms_site_id_by_slug', { p_slug: SITE_SLUG })
-  if (error) {
-    console.warn('[supabase] cms_site_id_by_slug failed', error.message)
-    return null
+  const tryRpc = async (name: string) => {
+    const { data, error } = await sb.rpc(name, name.includes('by_slug') ? { p_slug: SITE_SLUG } : {})
+    if (error) return null
+    return (data as string | null) ?? null
   }
-  return (data as string | null) ?? null
+
+  return (
+    (await tryRpc('cms_kocoon_site_id')) ||
+    (await tryRpc('cms_site_id_by_slug')) ||
+    null
+  )
 }
 
 /** @deprecated use resolveKocoonSiteId */

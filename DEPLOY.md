@@ -48,10 +48,11 @@ What this does:
 Staff / gallery / logo uploads need a dedicated bucket so images stay permanent (not broken `blob:` links).
 
 1. SQL Editor → **New query**
-2. Paste and run:
+2. Paste and run **both**:
 
    ```
    supabase/migrations/002_kocoon_storage_bucket.sql
+   supabase/migrations/003_kocoon_cms_write_and_storage.sql
    ```
 
 3. Confirm in **Storage** that bucket `kocoon-media` exists
@@ -61,7 +62,9 @@ What this does (safe for other projects):
 - Creates bucket **`kocoon-media` only** — does not change other buckets
 - Files must live under folder **`kocoon-wellness-spa/...`**
 - Public read so the website can show images
-- Other sites / folders cannot be written by these policies
+- Allows CMS to save image URLs into `cms_*` tables for this slug only
+
+**Production image flow:** Upload in `/admin` → file goes to Storage → permanent `https://…/kocoon-media/kocoon-wellness-spa/...` URL is saved → site loads that URL after refresh. Placeholder/Unsplash images are only temporary until you upload.
 
 ### 1.3 Copy API keys
 
