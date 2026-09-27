@@ -10,6 +10,7 @@ import { Reveal } from '@/components/common/Reveal'
 import { SectionHeading } from '@/components/common/SectionHeading'
 import {
   buildMessengerLink,
+  formatInquiryMessengerText,
   formatPhoneDisplay,
   messengerUrlForBranch,
   openMessengerChat,
@@ -58,28 +59,24 @@ export function Contact({ settings, services }: ContactProps) {
   async function onSubmit(values: FormValues) {
     setSubmitting(true)
     try {
-      // Hard-coded Page threads — Baguio & Manila never depend on CMS drift
-      const messengerHref = buildMessengerLink(messengerUrlForBranch(values.branch))
+      const draft = formatInquiryMessengerText({
+        branch: values.branch,
+        name: values.name,
+        phone: values.phone,
+        email: values.email,
+        service: values.service,
+        preferredDate: values.preferredDate,
+        message: values.message,
+      })
 
-      const fullMessage = [
-        `Hello Kocoon Wellness Spa (${values.branch} branch)!`,
-        `Name: ${values.name}`,
-        `Phone: ${values.phone}`,
-        values.email ? `Email: ${values.email}` : null,
-        `Service: ${values.service}`,
-        `Preferred date: ${values.preferredDate}`,
-        `Message: ${values.message}`,
-      ]
-        .filter((line) => line !== null)
-        .join('\n')
+      // m.me/{pageId}?text=… autofills the Messenger compose box for both branches
+      const messengerHref = buildMessengerLink(messengerUrlForBranch(values.branch), draft)
 
-      // Open Messenger first (sync) so pop-up blockers don't kill the Baguio chat.
       openMessengerChat(messengerHref)
-
-      void navigator.clipboard.writeText(fullMessage).catch(() => undefined)
+      void navigator.clipboard.writeText(draft).catch(() => undefined)
 
       toast.success(
-        `${values.branch} Messenger opened → paste your details if needed, then tap Send.`,
+        `${values.branch}: your details should appear in Messenger — review and tap Send.`,
         { duration: 9000 },
       )
 
@@ -252,10 +249,9 @@ export function Contact({ settings, services }: ContactProps) {
                 {submitting ? 'Opening Messenger…' : 'Message on Facebook'}
               </Button>
               <p className="mt-3 text-xs text-muted">
-                Baguio opens{' '}
-                <span className="text-cream">messages/t/1141805542359287</span>; Manila opens{' '}
-                <span className="text-cream">messages/t/1342439362286839</span>. Paste your details
-                if needed, then tap <span className="text-cream">Send</span> in Messenger.
+                Messenger opens with your inquiry filled in. Review the text, then tap{' '}
+                <span className="text-cream">Send</span> so it reaches the spa’s Page inbox. If the
+                box is empty, paste (details are also copied) and send.
               </p>
             </form>
           </Reveal>

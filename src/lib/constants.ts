@@ -46,41 +46,37 @@ export function formatPhoneDisplay(phone: string): string {
 
 /**
  * Build a Facebook Messenger deep link (no Facebook App / Graph API required).
- * Accepts m.me URL, facebook.com/messages/t/{pageId}, facebook page URL, or page ID.
  *
- * For facebook.com/messages/t/{id} we keep that exact URL (same format the spa uses).
- * Converting those IDs to m.me/ breaks some Pages (Baguio) even when Manila works.
+ * Autofill (form → message box) ONLY works with m.me/{pageId}?text=...
+ * facebook.com/messages/t/{id} can open the chat but will NOT prefill text.
  *
- * Important: this only OPENS a chat. Facebook will not put anything in the Page inbox
- * until the visitor taps Send in Messenger.
+ * Important: this only OPENS a chat with optional draft text. The visitor must
+ * still tap Send for it to appear in the Page inbox.
  */
 export function buildMessengerLink(pageUrlOrId: string, prefilledText?: string): string {
   const raw = pageUrlOrId.trim()
   if (!raw) return ''
 
-  let base = raw.split('#')[0].split('?')[0]
+  const cleaned = raw.split('#')[0].split('?')[0]
 
-  const threadMatch = base.match(/facebook\.com\/messages\/t\/(\d+)/i)
-  const mMeMatch = base.match(/m\.me\/([^/?#]+)/i)
-  const pageMatch = base.match(/facebook\.com\/(?:profile\.php\?id=)?([^/?#]+)/i)
+  const threadId = cleaned.match(/facebook\.com\/messages\/t\/(\d+)/i)?.[1]
+  const mMeId = cleaned.match(/m\.me\/([^/?#]+)/i)?.[1]
+  const pagePath = cleaned.match(/facebook\.com\/(?:profile\.php\?id=)?([^/?#]+)/i)?.[1]
+  const bareId = !/^https?:\/\//i.test(cleaned) ? cleaned.replace(/^@/, '') : null
 
-  if (threadMatch?.[1]) {
-    // Keep the exact Page thread URL — do NOT rewrite to m.me/{id}
-    base = `https://www.facebook.com/messages/t/${threadMatch[1]}`
-  } else if (mMeMatch?.[1]) {
-    base = `https://m.me/${mMeMatch[1]}`
-  } else if (/facebook\.com\//i.test(base) && pageMatch?.[1] && pageMatch[1] !== 'messages') {
-    base = `https://m.me/${pageMatch[1]}`
-  } else if (!/^https?:\/\//i.test(base)) {
-    base = `https://m.me/${base.replace(/^@/, '')}`
+  const pageKey = threadId || mMeId || (pagePath && pagePath !== 'messages' ? pagePath : null) || bareId
+  if (!pageKey) return ''
+
+  const draft = prefilledText?.trim()
+  if (draft) {
+    // m.me + text= is the only reliable autofill path Facebook supports
+    const text = draft.slice(0, 1000)
+    return `https://m.me/${pageKey}?text=${encodeURIComponent(text)}`
   }
 
-  // Prefill only works reliably on m.me links. For messages/t/ URLs the form
-  // copies the full inquiry to the clipboard instead.
-  if (!prefilledText?.trim() || threadMatch) return base
-
-  const text = prefilledText.trim().replace(/\s+/g, ' ').slice(0, 280)
-  return `${base}?text=${encodeURIComponent(text)}`
+  // No draft: keep the public thread URL the spa shared
+  if (threadId) return `https://www.facebook.com/messages/t/${threadId}`
+  return `https://m.me/${pageKey}`
 }
 
 /** Canonical inquiry Messenger targets — ignore corrupted CMS values. */
@@ -88,12 +84,36 @@ export function messengerUrlForBranch(branch: 'Baguio' | 'Baclaran'): string {
   return branch === 'Baclaran' ? BACLARAN_MESSENGER_URL : BAGUIO_MESSENGER_URL
 }
 
+/** Build inquiry draft text for Messenger autofill. */
+export function formatInquiryMessengerText(input: {
+  branch: string
+  name: string
+  phone: string
+  email?: string
+  service: string
+  preferredDate: string
+  message: string
+}): string {
+  const lines = [
+    `Hello Kocoon Wellness Spa (${input.branch} branch)!`,
+    ``,
+    `Name: ${input.name}`,
+    `Phone: ${input.phone}`,
+    input.email?.trim() ? `Email: ${input.email.trim()}` : null,
+    `Service: ${input.service}`,
+    `Preferred date: ${input.preferredDate}`,
+    ``,
+    `Message:`,
+    input.message,
+  ]
+  return lines.filter((line) => line !== null).join('\n')
+}
+
 /** Open Messenger; fall back if the browser blocks window.open. */
 export function openMessengerChat(url: string): boolean {
   if (!url) return false
   const popup = window.open(url, '_blank', 'noopener,noreferrer')
   if (popup) return true
-  // Popup blocked — navigate this tab
   window.location.assign(url)
   return true
 }
