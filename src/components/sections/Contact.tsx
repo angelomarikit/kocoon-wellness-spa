@@ -8,7 +8,7 @@ import { Button } from '@/components/common/Button'
 import { Container } from '@/components/common/Container'
 import { Reveal } from '@/components/common/Reveal'
 import { SectionHeading } from '@/components/common/SectionHeading'
-import { buildMessengerLink, formatPhoneDisplay, toTelHref } from '@/lib/constants'
+import { BACLARAN_MESSENGER_URL, buildMessengerLink, formatPhoneDisplay, toTelHref } from '@/lib/constants'
 import { inquiryService } from '@/services'
 import type { Service, SiteSettings } from '@/types'
 
@@ -33,12 +33,10 @@ interface ContactProps {
 
 function resolveMessengerUrl(settings: SiteSettings, branch: 'Baguio' | 'Baclaran'): string {
   if (branch === 'Baclaran') {
-    return (
-      settings.messengerUrlBaclaran ||
-      settings.facebookUrlBaclaran ||
-      settings.messengerUrl ||
-      settings.facebookUrl
-    )
+    const baclaran = (settings.messengerUrlBaclaran || settings.facebookUrlBaclaran || '').trim()
+    // Never fall back to Baguio Messenger for Baclaran — wrong inbox
+    if (!baclaran || baclaran.includes('1342439362286859')) return BACLARAN_MESSENGER_URL
+    return baclaran
   }
   return settings.messengerUrl || settings.facebookUrl
 }
@@ -72,24 +70,23 @@ export function Contact({ settings, services }: ContactProps) {
         return
       }
 
-      const composedMessage = [
+      const fullMessage = [
         `Hello Kocoon Wellness Spa (${values.branch} branch)!`,
-        ``,
         `Name: ${values.name}`,
         `Phone: ${values.phone}`,
         values.email ? `Email: ${values.email}` : null,
         `Service: ${values.service}`,
         `Preferred date: ${values.preferredDate}`,
-        ``,
-        `Message:`,
-        values.message,
+        `Message: ${values.message}`,
       ]
         .filter((line) => line !== null)
         .join('\n')
 
-      const messengerHref = buildMessengerLink(pageLink, composedMessage)
+      // Short line for Messenger prefill (Facebook often strips long text= payloads)
+      const shortPrefill = `Hi Kocoon (${values.branch})! ${values.name} · ${values.phone} · ${values.service} · ${values.preferredDate}`
 
-      // Save a local CMS record, then redirect (same-tab avoids popup blockers)
+      const messengerHref = buildMessengerLink(pageLink, shortPrefill)
+
       await inquiryService.create({
         name: values.name,
         phone: values.phone,
@@ -100,10 +97,22 @@ export function Contact({ settings, services }: ContactProps) {
         branch: values.branch,
       })
 
-      toast.success(`Opening Facebook Messenger for ${values.branch}…`)
-      window.location.assign(messengerHref)
+      try {
+        await navigator.clipboard.writeText(fullMessage)
+      } catch {
+        // Clipboard may be blocked; Messenger still opens
+      }
+
+      toast.success(
+        'Messenger opened. Tap Send in Messenger — the spa only sees it after you send. Full details were copied if you need to paste.',
+        { duration: 8000 },
+      )
+
+      // New tab keeps the website open; visitor must still press Send in Messenger
+      window.open(messengerHref, '_blank', 'noopener,noreferrer')
     } catch {
       toast.error('Something went wrong. Please try again or call us.')
+    } finally {
       setSubmitting(false)
     }
   }
@@ -207,7 +216,9 @@ export function Contact({ settings, services }: ContactProps) {
             >
               <h3 className="font-display text-2xl text-cream">Send an Inquiry</h3>
               <p className="mt-2 text-sm text-muted">
-                Choose a branch and continue on Facebook Messenger to confirm your appointment.
+                Choose a branch, then continue in Facebook Messenger and tap{' '}
+                <span className="text-cream">Send</span> — that is what delivers the booking to the
+                spa’s Page inbox.
               </p>
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -257,7 +268,8 @@ export function Contact({ settings, services }: ContactProps) {
                 {submitting ? 'Opening Messenger…' : 'Message on Facebook'}
               </Button>
               <p className="mt-3 text-xs text-muted">
-                You will be redirected to the selected branch’s Facebook Messenger chat.
+                Messenger will open in a new tab. If the message box is empty, paste (the form copies
+                your details) then tap Send. Nothing appears in the Facebook inbox until you send.
               </p>
             </form>
           </Reveal>

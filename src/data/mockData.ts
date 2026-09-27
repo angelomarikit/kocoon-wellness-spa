@@ -35,7 +35,7 @@ export const mockSettings: SiteSettings = {
   facebookUrlBaclaran: '',
   instagramUrl: '',
   messengerUrl: 'https://www.facebook.com/messages/t/1141805542359287',
-  messengerUrlBaclaran: 'https://www.facebook.com/messages/t/1342439362286859',
+  messengerUrlBaclaran: 'https://www.facebook.com/messages/t/1342439362286839',
   businessHours: [
     { day: 'Monday', open: '3:00 PM', close: '3:00 AM', closed: false },
     { day: 'Tuesday', open: '3:00 PM', close: '3:00 AM', closed: false },

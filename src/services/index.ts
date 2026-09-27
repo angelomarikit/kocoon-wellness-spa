@@ -9,7 +9,12 @@ import {
   mockStaff,
   mockTestimonials,
 } from '@/data/mockData'
-import { SITE_SLUG } from '@/lib/constants'
+import {
+  BACLARAN_MESSENGER_URL,
+  BACLARAN_MESSENGER_URL_LEGACY_TYPO,
+  BAGUIO_MESSENGER_URL,
+  SITE_SLUG,
+} from '@/lib/constants'
 import { isDurableImageUrl } from '@/lib/storage'
 import { createId, delay, hasStore, loadStore, saveStore } from '@/lib/store'
 import { canUseSupabaseCms, supabaseCms } from '@/services/supabaseCms'
@@ -53,6 +58,25 @@ function shouldPushLocalToRemote(opts: {
   return ts(opts.localUpdatedAt) > ts(opts.remoteUpdatedAt)
 }
 
+/** Keep Baclaran Messenger on the correct page ID (fixes legacy typo …859 → …839). */
+function normalizeMessengerSettings(settings: SiteSettings): boolean {
+  let changed = false
+  if (!settings.messengerUrl?.trim()) {
+    settings.messengerUrl = BAGUIO_MESSENGER_URL
+    changed = true
+  }
+  const baclaran = settings.messengerUrlBaclaran?.trim() ?? ''
+  if (
+    !baclaran ||
+    baclaran.includes('1342439362286859') ||
+    baclaran === BACLARAN_MESSENGER_URL_LEGACY_TYPO
+  ) {
+    settings.messengerUrlBaclaran = BACLARAN_MESSENGER_URL
+    changed = true
+  }
+  return changed
+}
+
 export const siteService = {
   async getSettings(): Promise<SiteSettings> {
     const localRaw = hasStore('settings') ? loadStore('settings', mockSettings) : null
@@ -73,6 +97,7 @@ export const siteService = {
           })
         ) {
           try {
+            normalizeMessengerSettings(localRaw)
             const saved = await supabaseCms.saveSettings({
               ...localRaw,
               updatedAt: new Date().toISOString(),
@@ -81,11 +106,26 @@ export const siteService = {
             return saved
           } catch (err) {
             console.warn('[cms] settings local→remote sync failed', err)
+            normalizeMessengerSettings(localRaw)
             return localRaw
           }
         }
         if (remote) {
-          saveStore('settings', remote)
+          if (normalizeMessengerSettings(remote)) {
+            saveStore('settings', remote)
+            try {
+              const saved = await supabaseCms.saveSettings({
+                ...remote,
+                updatedAt: new Date().toISOString(),
+              })
+              saveStore('settings', saved)
+              return saved
+            } catch (err) {
+              console.warn('[cms] messenger URL migrate failed', err)
+            }
+          } else {
+            saveStore('settings', remote)
+          }
           return remote
         }
       } catch (err) {
@@ -168,12 +208,14 @@ export const siteService = {
     if (
       settings.messengerUrlBaclaran === undefined ||
       !settings.messengerUrlBaclaran ||
-      !settings.messengerUrl
+      !settings.messengerUrl ||
+      settings.messengerUrlBaclaran.includes('1342439362286859')
     ) {
-      settings.messengerUrl = 'https://www.facebook.com/messages/t/1141805542359287'
-      settings.messengerUrlBaclaran = 'https://www.facebook.com/messages/t/1342439362286859'
+      if (!settings.messengerUrl) settings.messengerUrl = BAGUIO_MESSENGER_URL
+      settings.messengerUrlBaclaran = BACLARAN_MESSENGER_URL
       changed = true
     }
+    if (normalizeMessengerSettings(settings)) changed = true
     if (settings.facebookUrlBaclaran === undefined) {
       settings.facebookUrlBaclaran = ''
       changed = true

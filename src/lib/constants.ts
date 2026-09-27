@@ -15,6 +15,15 @@ export const DEFAULT_PHONE_TEL = `tel:${BAGUIO_GLOBE}`
 export const DEFAULT_ADDRESS = '116 Purok Bubon, Loakan Proper, Baguio City'
 export const DEFAULT_BUSINESS_NAME = 'Kocoon Wellness Spa'
 
+/** Facebook Messenger thread links (facebook.com/messages/t/{pageId}). */
+export const BAGUIO_MESSENGER_URL =
+  'https://www.facebook.com/messages/t/1141805542359287'
+export const BACLARAN_MESSENGER_URL =
+  'https://www.facebook.com/messages/t/1342439362286839'
+/** Typo that was shipping previously — migrate away from this ID. */
+export const BACLARAN_MESSENGER_URL_LEGACY_TYPO =
+  'https://www.facebook.com/messages/t/1342439362286859'
+
 /** Staff / team branch tabs (public + admin). */
 export const STAFF_BRANCHES = ['Baguio', 'Manila'] as const
 
@@ -36,9 +45,11 @@ export function formatPhoneDisplay(phone: string): string {
 }
 
 /**
- * Build a Facebook Messenger deep link (no Facebook App required).
- * Accepts m.me URL, facebook.com/messages/t/{id}, facebook page URL, or page ID.
- * Prefills the chat text when provided so form details appear in Messenger.
+ * Build a Facebook Messenger deep link (no Facebook App / Graph API required).
+ * Accepts m.me URL, facebook.com/messages/t/{pageId}, facebook page URL, or page ID.
+ *
+ * Important: this only OPENS a chat. Facebook will not put anything in the Page inbox
+ * until the visitor taps Send in Messenger.
  */
 export function buildMessengerLink(pageUrlOrId: string, prefilledText?: string): string {
   const raw = pageUrlOrId.trim()
@@ -61,5 +72,8 @@ export function buildMessengerLink(pageUrlOrId: string, prefilledText?: string):
   }
 
   if (!prefilledText?.trim()) return base
-  return `${base}?text=${encodeURIComponent(prefilledText.trim())}`
+
+  // Keep prefill short — long multi-line payloads are often dropped by Messenger.
+  const text = prefilledText.trim().replace(/\s+/g, ' ').slice(0, 280)
+  return `${base}?text=${encodeURIComponent(text)}`
 }

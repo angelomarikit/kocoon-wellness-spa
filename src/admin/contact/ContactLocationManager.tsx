@@ -94,12 +94,16 @@ export function ContactLocationManager() {
             className="field-input"
             value={settings.messengerUrlBaclaran ?? ''}
             onChange={(e) => setSettings({ ...settings, messengerUrlBaclaran: e.target.value })}
-            placeholder="https://www.facebook.com/messages/t/1342439362286859"
+            placeholder="https://www.facebook.com/messages/t/1342439362286839"
           />
         </label>
         <p className="text-xs text-muted sm:col-span-2">
-          Inquiry form opens these Messenger links. Use an m.me link or Facebook page URL — no Facebook
-          Developer app required.
+          Best format: the official <strong className="text-cream">m.me/YourPageUsername</strong> from
+          Facebook Page → Settings → Messaging (or Professional dashboard → Inbox).{' '}
+          <code className="text-cream">facebook.com/messages/t/…</code> page IDs also work. The website
+          only opens Messenger — guests must tap <strong className="text-cream">Send</strong> for the
+          message to appear in your Page inbox. Test while logged in as a personal account (not as the
+          Page).
         </p>
       </section>
 

@@ -396,7 +396,7 @@ begin
       'facebookUrlBaclaran', '',
       'instagramUrl', '',
       'messengerUrl', 'https://www.facebook.com/messages/t/1141805542359287',
-      'messengerUrlBaclaran', 'https://www.facebook.com/messages/t/1342439362286859',
+      'messengerUrlBaclaran', 'https://www.facebook.com/messages/t/1342439362286839',
       'logoUrl', '/logo.png',
       'faviconUrl', '/logo.png',
       'primaryGold', '#D4AF37',
