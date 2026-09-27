@@ -38,7 +38,22 @@ export function StaffList() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => (
           <article key={item.id} className="overflow-hidden rounded-xl border border-border bg-surface">
-            <img src={item.imageUrl} alt={item.name} className="aspect-[4/3] w-full object-cover" />
+            <div className="aspect-[4/3] w-full bg-bg">
+              {item.imageUrl && !item.imageUrl.startsWith('blob:') ? (
+                <img
+                  src={item.imageUrl}
+                  alt={item.name}
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none'
+                  }}
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-xs text-muted">
+                  No photo — re-upload
+                </div>
+              )}
+            </div>
             <div className="p-4">
               <h3 className="font-medium text-cream">{item.name}</h3>
               <p className="text-sm text-gold">{item.position}</p>

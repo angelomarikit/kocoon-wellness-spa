@@ -306,7 +306,18 @@ export const serviceService = {
 export const staffService = {
   async list(includeInactive = false): Promise<StaffMember[]> {
     await delay()
-    return loadStore('staff', mockStaff)
+    let items = loadStore('staff', mockStaff)
+    // Clear expired blob: preview URLs from earlier uploads (they break after reload)
+    let changed = false
+    items = items.map((s) => {
+      if (s.imageUrl?.startsWith('blob:')) {
+        changed = true
+        return { ...s, imageUrl: '' }
+      }
+      return s
+    })
+    if (changed) saveStore('staff', items)
+    return items
       .filter((s) => includeInactive || s.active)
       .sort((a, b) => a.sortOrder - b.sortOrder)
   },
@@ -367,6 +378,13 @@ export const galleryService = {
   async list(includeInactive = false): Promise<GalleryItem[]> {
     await delay()
     let items = loadStore('gallery', mockGallery)
+    // Clear expired blob: preview URLs from earlier uploads
+    if (items.some((g) => g.imageUrl?.startsWith('blob:'))) {
+      items = items.map((g) =>
+        g.imageUrl?.startsWith('blob:') ? { ...g, imageUrl: '' } : g,
+      )
+      saveStore('gallery', items)
+    }
     const urls = items.map((g) => g.imageUrl)
     const hasDuplicates = urls.length !== new Set(urls).size
     const missingNewPhotos = !urls.some((u) => u.includes('spa-4') || u.includes('spa-7'))

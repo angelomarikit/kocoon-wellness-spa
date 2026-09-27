@@ -1,5 +1,7 @@
-import { useRef, useState } from 'react'
-import { ImagePlus, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ImagePlus, Loader2, X } from 'lucide-react'
+import { isSupabaseConfigured } from '@/lib/supabase'
+import { uploadSiteImage, type UploadFolder } from '@/lib/storage'
 import { cn } from '@/lib/utils'
 
 interface ImageUploadProps {
@@ -7,23 +9,58 @@ interface ImageUploadProps {
   onChange: (url: string) => void
   label?: string
   className?: string
-  /**
-   * Prepares for Supabase Storage path:
-   * site-assets/kocoon-wellness-spa/{folder}/...
-   * Currently accepts URL paste or local object URL preview.
-   */
-  folder?: 'logo' | 'hero' | 'services' | 'staff' | 'gallery' | 'seo'
+  /** Storage folder under kocoon-wellness-spa/ */
+  folder?: UploadFolder
 }
 
-export function ImageUpload({ value, onChange, label = 'Image', className }: ImageUploadProps) {
+export function ImageUpload({
+  value,
+  onChange,
+  label = 'Image',
+  className,
+  folder = 'content',
+}: ImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [urlDraft, setUrlDraft] = useState(value ?? '')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [hint, setHint] = useState('')
 
-  function handleFile(file: File | undefined) {
+  useEffect(() => {
+    setUrlDraft(value ?? '')
+  }, [value])
+
+  async function handleFile(file: File | undefined) {
     if (!file) return
-    const objectUrl = URL.createObjectURL(file)
-    onChange(objectUrl)
-    setUrlDraft(objectUrl)
+    if (!file.type.startsWith('image/')) {
+      setError('Please choose an image file (JPG, PNG, or WebP).')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image is too large. Please use a file under 10MB.')
+      return
+    }
+
+    setBusy(true)
+    setError('')
+    setHint('')
+    try {
+      const result = await uploadSiteImage(file, folder)
+      onChange(result.url)
+      setUrlDraft(result.url)
+      setHint(
+        result.via === 'supabase'
+          ? 'Saved to Supabase Storage (permanent URL).'
+          : isSupabaseConfigured()
+            ? 'Saved locally — Storage upload failed. Re-run 002_kocoon_storage_bucket.sql and check env keys.'
+            : 'Saved locally — add VITE_SUPABASE_URL + ANON_KEY and run the storage SQL for permanent URLs.',
+      )
+    } catch {
+      setError('Could not upload that image. Try another file or paste a URL.')
+    } finally {
+      setBusy(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
   }
 
   return (
@@ -31,12 +68,21 @@ export function ImageUpload({ value, onChange, label = 'Image', className }: Ima
       <label className="block text-sm font-medium text-muted-light">{label}</label>
       {value ? (
         <div className="relative overflow-hidden rounded-lg border border-border bg-bg">
-          <img src={value} alt="" className="h-40 w-full object-cover" />
+          <img
+            src={value}
+            alt=""
+            className="h-40 w-full object-cover"
+            onError={(e) => {
+              e.currentTarget.style.opacity = '0.25'
+            }}
+          />
           <button
             type="button"
             onClick={() => {
               onChange('')
               setUrlDraft('')
+              setError('')
+              setHint('')
             }}
             className="absolute right-2 top-2 rounded-full bg-black/70 p-1.5 text-cream"
             aria-label="Remove image"
@@ -47,11 +93,12 @@ export function ImageUpload({ value, onChange, label = 'Image', className }: Ima
       ) : (
         <button
           type="button"
+          disabled={busy}
           onClick={() => inputRef.current?.click()}
-          className="flex h-40 w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-bg text-muted transition hover:border-gold/40 hover:text-gold"
+          className="flex h-40 w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-bg text-muted transition hover:border-gold/40 hover:text-gold disabled:opacity-60"
         >
-          <ImagePlus className="h-6 w-6" />
-          <span className="text-sm">Upload or choose image</span>
+          {busy ? <Loader2 className="h-6 w-6 animate-spin" /> : <ImagePlus className="h-6 w-6" />}
+          <span className="text-sm">{busy ? 'Uploading…' : 'Upload or choose image'}</span>
         </button>
       )}
       <input
@@ -59,12 +106,12 @@ export function ImageUpload({ value, onChange, label = 'Image', className }: Ima
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(e) => handleFile(e.target.files?.[0])}
+        onChange={(e) => void handleFile(e.target.files?.[0])}
       />
       <div className="flex gap-2">
         <input
           type="url"
-          value={urlDraft}
+          value={urlDraft.startsWith('data:') ? '' : urlDraft}
           onChange={(e) => setUrlDraft(e.target.value)}
           placeholder="Or paste image URL"
           className="admin-input flex-1"
@@ -72,14 +119,21 @@ export function ImageUpload({ value, onChange, label = 'Image', className }: Ima
         <button
           type="button"
           className="rounded-md border border-border px-3 text-sm text-cream hover:border-gold/40"
-          onClick={() => onChange(urlDraft)}
+          onClick={() => {
+            if (!urlDraft.trim() || urlDraft.startsWith('data:')) return
+            onChange(urlDraft.trim())
+            setHint('Using pasted URL.')
+          }}
         >
           Apply
         </button>
       </div>
+      {error ? <p className="text-xs text-red-400">{error}</p> : null}
+      {hint ? <p className="text-xs text-gold/90">{hint}</p> : null}
       <p className="text-xs text-muted">
-        Storage-ready: uploads will map to <code className="text-gold/80">site-assets/kocoon-wellness-spa/</code> when
-        Supabase Storage is connected.
+        Files go to Supabase bucket <code className="text-gold/80">kocoon-media</code> under{' '}
+        <code className="text-gold/80">kocoon-wellness-spa/{folder}/</code> — other sites are not
+        affected.
       </p>
     </div>
   )

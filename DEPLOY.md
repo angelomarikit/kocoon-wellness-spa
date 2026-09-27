@@ -43,6 +43,26 @@ What this does:
 - Public can read site content; linked admins can edit via RLS
 - Safe to re-run
 
+### 1.2b Run the Storage bucket SQL (required for photos)
+
+Staff / gallery / logo uploads need a dedicated bucket so images stay permanent (not broken `blob:` links).
+
+1. SQL Editor → **New query**
+2. Paste and run:
+
+   ```
+   supabase/migrations/002_kocoon_storage_bucket.sql
+   ```
+
+3. Confirm in **Storage** that bucket `kocoon-media` exists
+
+What this does (safe for other projects):
+
+- Creates bucket **`kocoon-media` only** — does not change other buckets
+- Files must live under folder **`kocoon-wellness-spa/...`**
+- Public read so the website can show images
+- Other sites / folders cannot be written by these policies
+
 ### 1.3 Copy API keys
 
 1. Left sidebar → **Project Settings** → **API**
@@ -260,11 +280,12 @@ Admin CMS: `/admin` (login at `/admin/login`)
 ## 4. After go-live checklist
 
 - [ ] SQL ran successfully (`cms_sites` has `kocoon-wellness-spa`)
+- [ ] Storage bucket `kocoon-media` exists (002 SQL)
 - [ ] Admin Auth user created and linked in `cms_site_admins`
 - [ ] GitHub repo has latest code (no `.env` secrets)
-- [ ] Vercel env vars set correctly
+- [ ] Vercel env vars set correctly (`VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`)
 - [ ] Homepage loads on the Vercel URL
-- [ ] `/admin` opens and you can edit content / photos
+- [ ] `/admin` photo upload shows “Saved to Supabase Storage”
 - [ ] Phones, Messenger links, and both branch addresses look correct
 
 ---

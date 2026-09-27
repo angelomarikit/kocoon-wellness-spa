@@ -1,6 +1,7 @@
 import { Container } from '@/components/common/Container'
 import { Reveal } from '@/components/common/Reveal'
 import { SectionHeading } from '@/components/common/SectionHeading'
+import { isBrokenUploadUrl } from '@/lib/imageUpload'
 import type { StaffMember } from '@/types'
 
 interface TeamProps {
@@ -20,13 +21,18 @@ export function Team({ staff }: TeamProps) {
           {staff.map((member, i) => (
             <Reveal key={member.id} delay={i * 0.05}>
               <article className="group overflow-hidden rounded-2xl border border-gold/12 bg-surface">
-                <div className="relative aspect-[3/4] overflow-hidden">
-                  <img
-                    src={member.imageUrl}
-                    alt={member.name}
-                    className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
-                    loading="lazy"
-                  />
+                <div className="relative aspect-[3/4] overflow-hidden bg-bg-elevated">
+                  {!isBrokenUploadUrl(member.imageUrl) ? (
+                    <img
+                      src={member.imageUrl}
+                      alt={member.name}
+                      className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                      loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none'
+                      }}
+                    />
+                  ) : null}
                   <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/20 to-transparent" />
                 </div>
                 <div className="p-5">
