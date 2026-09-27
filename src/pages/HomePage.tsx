@@ -15,6 +15,16 @@ import { Testimonials } from '@/components/sections/Testimonials'
 import { Welcome } from '@/components/sections/Welcome'
 import { WhyChoose } from '@/components/sections/WhyChoose'
 import {
+  mockFaqs,
+  mockGallery,
+  mockPageContent,
+  mockSEO,
+  mockServices,
+  mockSettings,
+  mockStaff,
+  mockTestimonials,
+} from '@/data/mockData'
+import {
   faqService,
   galleryService,
   serviceService,
@@ -33,6 +43,15 @@ import type {
   Testimonial,
 } from '@/types'
 
+async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await fn()
+  } catch (err) {
+    console.warn('[home] load failed, using fallback', err)
+    return fallback
+  }
+}
+
 export function HomePage() {
   const [settings, setSettings] = useState<SiteSettings | null>(null)
   const [seo, setSeo] = useState<SEOSettings | null>(null)
@@ -49,14 +68,14 @@ export function HomePage() {
     async function load() {
       try {
         const [s, se, c, svc, st, g, t, f] = await Promise.all([
-          siteService.getSettings(),
-          siteService.getSEO(),
-          siteService.getPageContent(),
-          serviceService.list(),
-          staffService.list(),
-          galleryService.list(),
-          testimonialService.list(),
-          faqService.list(),
+          safe(() => siteService.getSettings(), mockSettings),
+          safe(() => siteService.getSEO(), mockSEO),
+          safe(() => siteService.getPageContent(), mockPageContent),
+          safe(() => serviceService.list(), mockServices.filter((x) => x.active)),
+          safe(() => staffService.list(), mockStaff.filter((x) => x.active)),
+          safe(() => galleryService.list(), mockGallery.filter((x) => x.active)),
+          safe(() => testimonialService.list(), mockTestimonials.filter((x) => x.published)),
+          safe(() => faqService.list(), mockFaqs.filter((x) => x.active)),
         ])
         if (!mounted) return
         setSettings(s)
@@ -67,6 +86,17 @@ export function HomePage() {
         setGallery(g)
         setTestimonials(t)
         setFaqs(f)
+      } catch (err) {
+        console.warn('[home] unexpected load error', err)
+        if (!mounted) return
+        setSettings(mockSettings)
+        setSeo(mockSEO)
+        setContent(mockPageContent)
+        setServices(mockServices.filter((x) => x.active))
+        setStaff(mockStaff.filter((x) => x.active))
+        setGallery(mockGallery.filter((x) => x.active))
+        setTestimonials(mockTestimonials.filter((x) => x.published))
+        setFaqs(mockFaqs.filter((x) => x.active))
       } finally {
         if (mounted) setLoading(false)
       }
@@ -81,7 +111,11 @@ export function HomePage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg">
         <div className="text-center">
-          <img src="/logo.png" alt="" className="mx-auto mb-4 h-20 w-auto max-w-[200px] animate-pulse bg-transparent object-contain" />
+          <img
+            src="/logo.png"
+            alt=""
+            className="mx-auto mb-4 h-20 w-auto max-w-[200px] animate-pulse bg-transparent object-contain"
+          />
           <p className="text-sm tracking-widest text-gold">KOCOON</p>
         </div>
       </div>

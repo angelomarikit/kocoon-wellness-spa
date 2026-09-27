@@ -46,7 +46,7 @@ export const siteService = {
         console.warn('[cms] settings remote read failed', err)
       }
     }
-    await delay()
+    await delay(40)
     const settings = loadStore('settings', mockSettings)
     let changed = false
     // Prefer the HD logo asset if older CMS data still points at legacy files
@@ -209,36 +209,35 @@ export const siteService = {
     const content = loadStore('pageContent', mockPageContent)
     let changed = false
     // Only replace true placeholders — never overwrite uploaded Storage URLs
+    const heroImg = content.hero.imageUrl ?? ''
+    const welcomeImg = content.welcome.imageUrl ?? ''
+    const aboutImg = content.about.imageUrl ?? ''
+    const experienceImg = content.experience.backgroundImageUrl ?? ''
+
     if (
-      !isDurableImageUrl(content.hero.imageUrl) ||
-      content.hero.imageUrl.includes('unsplash.com') ||
-      content.hero.imageUrl === '/hero.jpg'
+      !isDurableImageUrl(heroImg) ||
+      heroImg.includes('unsplash.com') ||
+      heroImg === '/hero.jpg'
     ) {
-      if (!content.hero.imageUrl.includes('supabase') && !content.hero.imageUrl.includes('kocoon-media')) {
+      if (!heroImg.includes('supabase') && !heroImg.includes('kocoon-media')) {
         content.hero.imageUrl = '/hero-poster.jpg'
         changed = true
       }
     }
-    if (!isDurableImageUrl(content.welcome.imageUrl) || content.welcome.imageUrl.includes('unsplash.com')) {
-      if (!content.welcome.imageUrl.includes('supabase') && !content.welcome.imageUrl.includes('kocoon-media')) {
+    if (!isDurableImageUrl(welcomeImg) || welcomeImg.includes('unsplash.com')) {
+      if (!welcomeImg.includes('supabase') && !welcomeImg.includes('kocoon-media')) {
         content.welcome.imageUrl = '/spa/spa-3.jpg'
         changed = true
       }
     }
-    if (!isDurableImageUrl(content.about.imageUrl) || content.about.imageUrl.includes('unsplash.com')) {
-      if (!content.about.imageUrl.includes('supabase') && !content.about.imageUrl.includes('kocoon-media')) {
+    if (!isDurableImageUrl(aboutImg) || aboutImg.includes('unsplash.com')) {
+      if (!aboutImg.includes('supabase') && !aboutImg.includes('kocoon-media')) {
         content.about.imageUrl = '/spa/spa-1.jpg'
         changed = true
       }
     }
-    if (
-      !isDurableImageUrl(content.experience.backgroundImageUrl) ||
-      content.experience.backgroundImageUrl.includes('unsplash.com')
-    ) {
-      if (
-        !content.experience.backgroundImageUrl.includes('supabase') &&
-        !content.experience.backgroundImageUrl.includes('kocoon-media')
-      ) {
+    if (!isDurableImageUrl(experienceImg) || experienceImg.includes('unsplash.com')) {
+      if (!experienceImg.includes('supabase') && !experienceImg.includes('kocoon-media')) {
         content.experience.backgroundImageUrl = '/spa/spa-2.jpg'
         changed = true
       }
@@ -398,6 +397,7 @@ export const serviceService = {
 
 export const staffService = {
   async list(includeInactive = false): Promise<StaffMember[]> {
+    // Local-first for speed. Remote only when VITE_SUPABASE_CMS=true.
     if (canUseSupabaseCms()) {
       try {
         const remote = await supabaseCms.listStaff(includeInactive)
@@ -406,7 +406,7 @@ export const staffService = {
         console.warn('[cms] staff remote read failed', err)
       }
     }
-    await delay()
+    await delay(40)
     let items = loadStore('staff', mockStaff)
     // Drop broken blob/data previews — placeholders remain until a Storage upload
     let changed = false
@@ -431,9 +431,6 @@ export const staffService = {
   async create(
     input: Omit<StaffMember, 'id' | 'siteId' | 'createdAt' | 'updatedAt'>,
   ): Promise<StaffMember> {
-    if (canUseSupabaseCms()) {
-      return supabaseCms.upsertStaff(input)
-    }
     await delay()
     const items = loadStore('staff', mockStaff)
     const item: StaffMember = {
@@ -445,26 +442,34 @@ export const staffService = {
     }
     items.push(item)
     saveStore('staff', items)
+    if (canUseSupabaseCms()) {
+      try {
+        return await supabaseCms.upsertStaff(input)
+      } catch (err) {
+        console.warn('[cms] staff remote create failed; kept local', err)
+      }
+    }
     return item
   },
 
   async update(id: string, patch: Partial<StaffMember>): Promise<StaffMember> {
-    if (canUseSupabaseCms()) {
-      const current = (await this.list(true)).find((s) => s.id === id)
-      if (!current) throw new Error('Staff member not found')
-      const merged = { ...current, ...patch }
-      const { id: _i, siteId: _s, createdAt: _c, updatedAt: _u, ...rest } = merged
-      return supabaseCms.upsertStaff({
-        ...rest,
-        id: isUuid(id) ? id : undefined,
-      })
-    }
     await delay()
     const items = loadStore('staff', mockStaff)
     const idx = items.findIndex((s) => s.id === id)
     if (idx < 0) throw new Error('Staff member not found')
     items[idx] = { ...items[idx], ...patch, id, updatedAt: new Date().toISOString() }
     saveStore('staff', items)
+    if (canUseSupabaseCms()) {
+      try {
+        const { id: _i, siteId: _s, createdAt: _c, updatedAt: _u, ...rest } = items[idx]
+        return await supabaseCms.upsertStaff({
+          ...rest,
+          id: isUuid(id) ? id : undefined,
+        })
+      } catch (err) {
+        console.warn('[cms] staff remote update failed; kept local', err)
+      }
+    }
     return items[idx]
   },
 

@@ -255,7 +255,8 @@ Before deploying, open **Environment Variables** and add:
 | Name | Value |
 | ---- | ----- |
 | `VITE_SUPABASE_URL` | Shared Supabase Project URL |
-| `VITE_SUPABASE_ANON_KEY` | Shared Supabase anon key |
+| `VITE_SUPABASE_ANON_KEY` | Supabase **anon public** key (from Settings → API; usually starts with `eyJ...`) |
+| `VITE_SUPABASE_CMS` | Leave empty for fast site. Set `true` only after SQL works if you want DB sync |
 | `VITE_SITE_SLUG` | `kocoon-wellness-spa` |
 | `VITE_SITE_URL` | Your live URL (e.g. `https://kocoonwellnessspa.vercel.app` or custom domain) |
 

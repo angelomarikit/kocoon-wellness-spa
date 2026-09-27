@@ -13,32 +13,31 @@ import type {
   StaffMember,
   Testimonial,
 } from '@/types'
-import { getSupabaseClient, isSupabaseConfigured, resolveKocoonSiteId } from '@/lib/supabase'
+import { getSupabaseClient, isSupabaseConfigured, resolveKocoonSiteId, withTimeout } from '@/lib/supabase'
 import { SITE_SLUG } from '@/lib/constants'
 
 export function canUseSupabaseCms(): boolean {
-  return isSupabaseConfigured()
+  // Remote DB reads were slowing the public site when Supabase was unreachable.
+  // Opt in with VITE_SUPABASE_CMS=true after SQL + keys are confirmed working.
+  // Storage uploads still work whenever VITE_SUPABASE_URL/ANON_KEY are set.
+  return (
+    isSupabaseConfigured() &&
+    String(import.meta.env.VITE_SUPABASE_CMS || '').toLowerCase() === 'true'
+  )
 }
 
 async function siteIdOrThrow(): Promise<string> {
   const id = await resolveKocoonSiteId()
   if (!id) {
-    // Fallback: direct table lookup
-    const sb = getSupabaseClient()
-    if (!sb) throw new Error('Supabase not configured')
-    const { data, error } = await sb
-      .from('cms_sites')
-      .select('id')
-      .eq('slug', SITE_SLUG)
-      .maybeSingle()
-    if (error || !data?.id) {
-      throw new Error(
-        'Site kocoon-wellness-spa not found. Run 001_kocoon_wellness_spa.sql in Supabase.',
-      )
-    }
-    return data.id as string
+    throw new Error(
+      'Site kocoon-wellness-spa not found. Run 001_kocoon_wellness_spa.sql in Supabase.',
+    )
   }
   return id
+}
+
+async function timed<T>(fn: () => Promise<T>): Promise<T> {
+  return withTimeout(fn(), 8000)
 }
 
 function mapStaff(row: Record<string, unknown>, siteId: string): StaffMember {
@@ -104,14 +103,16 @@ function mapService(row: Record<string, unknown>, siteId: string): Service {
 
 export const supabaseCms = {
   async listStaff(includeInactive = false): Promise<StaffMember[] | null> {
-    const sb = getSupabaseClient()
-    if (!sb) return null
-    const siteId = await siteIdOrThrow()
-    let q = sb.from('cms_staff').select('*').eq('site_id', siteId).order('sort_order')
-    if (!includeInactive) q = q.eq('is_active', true)
-    const { data, error } = await q
-    if (error) throw new Error(error.message)
-    return (data ?? []).map((row) => mapStaff(row as Record<string, unknown>, siteId))
+    return timed(async () => {
+      const sb = getSupabaseClient()
+      if (!sb) return null
+      const siteId = await siteIdOrThrow()
+      let q = sb.from('cms_staff').select('*').eq('site_id', siteId).order('sort_order')
+      if (!includeInactive) q = q.eq('is_active', true)
+      const { data, error } = await q
+      if (error) throw new Error(error.message)
+      return (data ?? []).map((row) => mapStaff(row as Record<string, unknown>, siteId))
+    })
   },
 
   async upsertStaff(
@@ -154,14 +155,16 @@ export const supabaseCms = {
   },
 
   async listGallery(includeInactive = false): Promise<GalleryItem[] | null> {
-    const sb = getSupabaseClient()
-    if (!sb) return null
-    const siteId = await siteIdOrThrow()
-    let q = sb.from('cms_gallery').select('*').eq('site_id', siteId).order('sort_order')
-    if (!includeInactive) q = q.eq('is_active', true)
-    const { data, error } = await q
-    if (error) throw new Error(error.message)
-    return (data ?? []).map((row) => mapGallery(row as Record<string, unknown>, siteId))
+    return timed(async () => {
+      const sb = getSupabaseClient()
+      if (!sb) return null
+      const siteId = await siteIdOrThrow()
+      let q = sb.from('cms_gallery').select('*').eq('site_id', siteId).order('sort_order')
+      if (!includeInactive) q = q.eq('is_active', true)
+      const { data, error } = await q
+      if (error) throw new Error(error.message)
+      return (data ?? []).map((row) => mapGallery(row as Record<string, unknown>, siteId))
+    })
   },
 
   async upsertGallery(
@@ -195,14 +198,16 @@ export const supabaseCms = {
   },
 
   async listServices(includeInactive = false): Promise<Service[] | null> {
-    const sb = getSupabaseClient()
-    if (!sb) return null
-    const siteId = await siteIdOrThrow()
-    let q = sb.from('cms_services').select('*').eq('site_id', siteId).order('sort_order')
-    if (!includeInactive) q = q.eq('is_active', true)
-    const { data, error } = await q
-    if (error) throw new Error(error.message)
-    return (data ?? []).map((row) => mapService(row as Record<string, unknown>, siteId))
+    return timed(async () => {
+      const sb = getSupabaseClient()
+      if (!sb) return null
+      const siteId = await siteIdOrThrow()
+      let q = sb.from('cms_services').select('*').eq('site_id', siteId).order('sort_order')
+      if (!includeInactive) q = q.eq('is_active', true)
+      const { data, error } = await q
+      if (error) throw new Error(error.message)
+      return (data ?? []).map((row) => mapService(row as Record<string, unknown>, siteId))
+    })
   },
 
   async upsertService(
@@ -238,23 +243,25 @@ export const supabaseCms = {
   },
 
   async getPageContent(): Promise<PageContent | null> {
-    const sb = getSupabaseClient()
-    if (!sb) return null
-    const siteId = await siteIdOrThrow()
-    const { data, error } = await sb
-      .from('cms_page_content')
-      .select('id, data, updated_at')
-      .eq('site_id', siteId)
-      .maybeSingle()
-    if (error) throw new Error(error.message)
-    if (!data?.data) return null
-    const body = data.data as Omit<PageContent, 'id' | 'siteId' | 'updatedAt'>
-    return {
-      ...body,
-      id: String(data.id),
-      siteId,
-      updatedAt: String(data.updated_at),
-    }
+    return timed(async () => {
+      const sb = getSupabaseClient()
+      if (!sb) return null
+      const siteId = await siteIdOrThrow()
+      const { data, error } = await sb
+        .from('cms_page_content')
+        .select('id, data, updated_at')
+        .eq('site_id', siteId)
+        .maybeSingle()
+      if (error) throw new Error(error.message)
+      if (!data?.data) return null
+      const body = data.data as Omit<PageContent, 'id' | 'siteId' | 'updatedAt'>
+      return {
+        ...body,
+        id: String(data.id),
+        siteId,
+        updatedAt: String(data.updated_at),
+      }
+    })
   },
 
   async savePageContent(content: PageContent): Promise<PageContent> {
@@ -278,24 +285,26 @@ export const supabaseCms = {
   },
 
   async getSettings(): Promise<SiteSettings | null> {
-    const sb = getSupabaseClient()
-    if (!sb) return null
-    const siteId = await siteIdOrThrow()
-    const { data, error } = await sb
-      .from('cms_settings')
-      .select('id, data, updated_at')
-      .eq('site_id', siteId)
-      .maybeSingle()
-    if (error) throw new Error(error.message)
-    if (!data?.data) return null
-    const body = data.data as Omit<SiteSettings, 'id' | 'siteId' | 'slug' | 'updatedAt'>
-    return {
-      ...body,
-      id: String(data.id),
-      siteId,
-      slug: SITE_SLUG,
-      updatedAt: String(data.updated_at),
-    } as SiteSettings
+    return timed(async () => {
+      const sb = getSupabaseClient()
+      if (!sb) return null
+      const siteId = await siteIdOrThrow()
+      const { data, error } = await sb
+        .from('cms_settings')
+        .select('id, data, updated_at')
+        .eq('site_id', siteId)
+        .maybeSingle()
+      if (error) throw new Error(error.message)
+      if (!data?.data) return null
+      const body = data.data as Omit<SiteSettings, 'id' | 'siteId' | 'slug' | 'updatedAt'>
+      return {
+        ...body,
+        id: String(data.id),
+        siteId,
+        slug: SITE_SLUG,
+        updatedAt: String(data.updated_at),
+      } as SiteSettings
+    })
   },
 
   async saveSettings(settings: SiteSettings): Promise<SiteSettings> {
@@ -320,23 +329,25 @@ export const supabaseCms = {
   },
 
   async getSEO(): Promise<SEOSettings | null> {
-    const sb = getSupabaseClient()
-    if (!sb) return null
-    const siteId = await siteIdOrThrow()
-    const { data, error } = await sb
-      .from('cms_seo')
-      .select('id, data, updated_at')
-      .eq('site_id', siteId)
-      .maybeSingle()
-    if (error) throw new Error(error.message)
-    if (!data?.data) return null
-    const body = data.data as Omit<SEOSettings, 'id' | 'siteId' | 'updatedAt'>
-    return {
-      ...body,
-      id: String(data.id),
-      siteId,
-      updatedAt: String(data.updated_at),
-    }
+    return timed(async () => {
+      const sb = getSupabaseClient()
+      if (!sb) return null
+      const siteId = await siteIdOrThrow()
+      const { data, error } = await sb
+        .from('cms_seo')
+        .select('id, data, updated_at')
+        .eq('site_id', siteId)
+        .maybeSingle()
+      if (error) throw new Error(error.message)
+      if (!data?.data) return null
+      const body = data.data as Omit<SEOSettings, 'id' | 'siteId' | 'updatedAt'>
+      return {
+        ...body,
+        id: String(data.id),
+        siteId,
+        updatedAt: String(data.updated_at),
+      }
+    })
   },
 
   async saveSEO(seo: SEOSettings): Promise<SEOSettings> {
