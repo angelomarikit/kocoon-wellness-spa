@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Button } from '@/components/common/Button'
 import { ImageUpload } from '@/components/common/ImageUpload'
 import { slugify } from '@/lib/utils'
@@ -35,11 +35,15 @@ export function ServiceForm({ initial, onSaved, onCancel }: ServiceFormProps) {
     sortOrder: initial?.sortOrder ?? 99,
     ctaLabel: initial?.ctaLabel ?? 'View Details',
   })
+  const imageUrlRef = useRef(form.imageUrl)
+  const galleryImageUrlRef = useRef(form.galleryImageUrl)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     try {
+      const imageUrl = imageUrlRef.current.trim() || form.imageUrl
+      const galleryImageUrl = galleryImageUrlRef.current.trim() || form.galleryImageUrl || imageUrl
       const payload = {
         name: form.name,
         slug: form.slug || slugify(form.name),
@@ -53,8 +57,8 @@ export function ServiceForm({ initial, onSaved, onCancel }: ServiceFormProps) {
             : Number(form.discountedPrice),
         duration: Number(form.duration),
         durationLabel: form.durationLabel,
-        imageUrl: form.imageUrl,
-        galleryImageUrl: form.galleryImageUrl || form.imageUrl,
+        imageUrl,
+        galleryImageUrl,
         benefits: form.benefits
           .split('\n')
           .map((s) => s.trim())
@@ -203,13 +207,19 @@ export function ServiceForm({ initial, onSaved, onCancel }: ServiceFormProps) {
             label="Thumbnail"
             folder="services"
             value={form.imageUrl}
-            onChange={(url) => setForm({ ...form, imageUrl: url })}
+            onChange={(url) => {
+              imageUrlRef.current = url
+              setForm((prev) => ({ ...prev, imageUrl: url }))
+            }}
           />
           <ImageUpload
             label="Gallery / Detail Image"
             folder="services"
             value={form.galleryImageUrl}
-            onChange={(url) => setForm({ ...form, galleryImageUrl: url })}
+            onChange={(url) => {
+              galleryImageUrlRef.current = url
+              setForm((prev) => ({ ...prev, galleryImageUrl: url }))
+            }}
           />
         </div>
       )}

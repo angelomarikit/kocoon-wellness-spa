@@ -12,6 +12,11 @@ interface ImageUploadProps {
   folder?: UploadFolder
 }
 
+function displayUrl(url: string): string {
+  if (url.startsWith('data:') || url.startsWith('blob:')) return ''
+  return url
+}
+
 export function ImageUpload({
   value,
   onChange,
@@ -19,15 +24,55 @@ export function ImageUpload({
   className,
   folder = 'content',
 }: ImageUploadProps) {
+  const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const [urlDraft, setUrlDraft] = useState(value ?? '')
+  const [urlDraft, setUrlDraft] = useState(displayUrl(value ?? ''))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [hint, setHint] = useState('')
+  const onChangeRef = useRef(onChange)
+  const draftRef = useRef(urlDraft)
 
   useEffect(() => {
-    setUrlDraft(value ?? '')
+    onChangeRef.current = onChange
+  }, [onChange])
+
+  useEffect(() => {
+    setUrlDraft(displayUrl(value ?? ''))
+    draftRef.current = displayUrl(value ?? '')
   }, [value])
+
+  function commitUrl(raw: string, opts?: { quiet?: boolean }) {
+    const next = raw.trim()
+    setUrlDraft(raw)
+    draftRef.current = raw
+    if (!next || next.startsWith('data:') || next.startsWith('blob:')) return false
+    if (!isDurableImageUrl(next)) return false
+    onChangeRef.current(next)
+    if (!opts?.quiet) {
+      setHint('Image URL ready — click Save to keep it.')
+      setError('')
+    }
+    return true
+  }
+
+  // Before any parent <form> Save/submit, push the draft URL into form state
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+    const form = root.closest('form')
+    if (!form) return
+
+    const flush = () => {
+      const next = draftRef.current.trim()
+      if (next && isDurableImageUrl(next) && !next.startsWith('data:') && !next.startsWith('blob:')) {
+        onChangeRef.current(next)
+      }
+    }
+
+    form.addEventListener('submit', flush, true)
+    return () => form.removeEventListener('submit', flush, true)
+  }, [])
 
   async function handleFile(file: File | undefined) {
     if (!file) return
@@ -54,9 +99,10 @@ export function ImageUpload({
       if (!isDurableImageUrl(result.url)) {
         throw new Error('Upload did not return a permanent URL.')
       }
-      onChange(result.url)
+      onChangeRef.current(result.url)
       setUrlDraft(result.url)
-      setHint('Saved to Supabase Storage — this image will stay after refresh.')
+      draftRef.current = result.url
+      setHint('Uploaded — click Save to keep this photo on the site.')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Upload failed'
       setError(message)
@@ -68,7 +114,7 @@ export function ImageUpload({
   }
 
   return (
-    <div className={cn('space-y-3', className)}>
+    <div ref={rootRef} className={cn('space-y-3', className)}>
       <label className="block text-sm font-medium text-muted-light">{label}</label>
       {value ? (
         <div className="relative overflow-hidden rounded-lg border border-border bg-bg">
@@ -83,8 +129,9 @@ export function ImageUpload({
           <button
             type="button"
             onClick={() => {
-              onChange('')
+              onChangeRef.current('')
               setUrlDraft('')
+              draftRef.current = ''
               setError('')
               setHint('')
             }}
@@ -112,36 +159,19 @@ export function ImageUpload({
         className="hidden"
         onChange={(e) => void handleFile(e.target.files?.[0])}
       />
-      <div className="flex gap-2">
-        <input
-          type="url"
-          value={urlDraft.startsWith('data:') || urlDraft.startsWith('blob:') ? '' : urlDraft}
-          onChange={(e) => setUrlDraft(e.target.value)}
-          placeholder="Or paste a permanent image URL"
-          className="admin-input flex-1"
-        />
-        <button
-          type="button"
-          className="rounded-md border border-border px-3 text-sm text-cream hover:border-gold/40"
-          onClick={() => {
-            const next = urlDraft.trim()
-            if (!next || next.startsWith('data:') || next.startsWith('blob:')) {
-              setError('Paste a normal https:// image URL, or use Upload.')
-              return
-            }
-            onChange(next)
-            setHint('Using pasted URL.')
-            setError('')
-          }}
-        >
-          Apply
-        </button>
-      </div>
+      <input
+        type="url"
+        value={urlDraft}
+        onChange={(e) => commitUrl(e.target.value, { quiet: true })}
+        onBlur={() => commitUrl(urlDraft)}
+        placeholder="Or paste a permanent image URL"
+        className="admin-input w-full"
+      />
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
       {hint ? <p className="text-xs text-gold/90">{hint}</p> : null}
       <p className="text-xs text-muted">
-        Production flow: upload → Supabase bucket <code className="text-gold/80">kocoon-media</code> →
-        public URL on the site. Placeholders are only temporary until you upload.
+        Upload or paste a URL, then click <span className="text-cream">Save</span> — Apply is no longer
+        needed. Files go to <code className="text-gold/80">kocoon-media</code>.
       </p>
     </div>
   )

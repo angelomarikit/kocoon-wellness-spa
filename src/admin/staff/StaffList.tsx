@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/common/Button'
@@ -150,17 +150,20 @@ function StaffForm({
     active: initial?.active ?? true,
     sortOrder: initial?.sortOrder ?? 99,
   })
+  const imageUrlRef = useRef(form.imageUrl)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     try {
-      if (!form.imageUrl || form.imageUrl.startsWith('blob:') || form.imageUrl.startsWith('data:')) {
-        toast.error('Upload a photo to Supabase Storage first (temporary previews are not saved).')
+      const imageUrl = imageUrlRef.current.trim()
+      if (!imageUrl || imageUrl.startsWith('blob:') || imageUrl.startsWith('data:')) {
+        toast.error('Upload a photo (or paste a permanent image URL) before saving.')
         return
       }
-      if (initial) await staffService.update(initial.id, form)
-      else await staffService.create(form)
+      const payload = { ...form, imageUrl }
+      if (initial) await staffService.update(initial.id, payload)
+      else await staffService.create(payload)
       onSaved()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save staff')
@@ -175,7 +178,10 @@ function StaffForm({
         label="Photo"
         folder="staff"
         value={form.imageUrl}
-        onChange={(url) => setForm({ ...form, imageUrl: url })}
+        onChange={(url) => {
+          imageUrlRef.current = url
+          setForm((prev) => ({ ...prev, imageUrl: url }))
+        }}
       />
       <label className="text-sm">
         <span className="mb-1.5 block text-muted-light">Full Name</span>

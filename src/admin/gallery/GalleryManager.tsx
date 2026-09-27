@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/common/Button'
@@ -136,13 +136,15 @@ function GalleryForm({
     sortOrder: initial?.sortOrder ?? 99,
     aspect: (initial?.aspect ?? 'square') as GalleryItem['aspect'],
   })
+  const imageUrlRef = useRef(form.imageUrl)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     try {
-      if (initial) await galleryService.update(initial.id, form)
-      else await galleryService.create(form)
+      const payload = { ...form, imageUrl: imageUrlRef.current.trim() || form.imageUrl }
+      if (initial) await galleryService.update(initial.id, payload)
+      else await galleryService.create(payload)
       onSaved()
     } finally {
       setSaving(false)
@@ -155,7 +157,10 @@ function GalleryForm({
         label="Image"
         folder="gallery"
         value={form.imageUrl}
-        onChange={(url) => setForm({ ...form, imageUrl: url })}
+        onChange={(url) => {
+          imageUrlRef.current = url
+          setForm((prev) => ({ ...prev, imageUrl: url }))
+        }}
       />
       <label className="text-sm">
         <span className="mb-1.5 block text-muted-light">Caption</span>
