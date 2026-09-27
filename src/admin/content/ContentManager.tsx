@@ -32,9 +32,13 @@ export function ContentManager() {
     try {
       const next = await siteService.updatePageContent(content)
       setContent(next)
-      toast.success('Page content saved')
-    } catch {
-      toast.error('Failed to save content')
+      toast.success('Page content saved to cloud')
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : 'Failed to save content. Check Supabase connection.',
+      )
     } finally {
       setSaving(false)
     }
@@ -47,7 +51,9 @@ export function ContentManager() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl text-cream">Page Content</h1>
-          <p className="mt-1 text-sm text-muted">Edit landing page sections without touching code.</p>
+          <p className="mt-1 text-sm text-muted">
+            Edit landing page sections. Saves go to Supabase so every browser (including Incognito) sees the same content.
+          </p>
         </div>
         <Button onClick={() => void save()} disabled={saving}>
           {saving ? 'Saving…' : 'Save Changes'}

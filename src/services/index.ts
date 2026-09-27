@@ -11,7 +11,7 @@ import {
 } from '@/data/mockData'
 import { SITE_SLUG } from '@/lib/constants'
 import { isDurableImageUrl } from '@/lib/storage'
-import { createId, delay, loadStore, saveStore } from '@/lib/store'
+import { createId, delay, hasStore, loadStore, saveStore } from '@/lib/store'
 import { canUseSupabaseCms, supabaseCms } from '@/services/supabaseCms'
 import type {
   DashboardStats,
@@ -36,12 +36,61 @@ function isUuid(id: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
 }
 
+function ts(value?: string): number {
+  const n = Date.parse(value ?? '')
+  return Number.isFinite(n) ? n : 0
+}
+
+/** Prefer this browser's saved CMS when it is newer or remote is still the SQL seed. */
+function shouldPushLocalToRemote(opts: {
+  storeKey: string
+  localUpdatedAt?: string
+  remoteUpdatedAt?: string
+  localLooksCustom: boolean
+  remoteLooksSeed: boolean
+}): boolean {
+  if (!hasStore(opts.storeKey)) return false
+  if (!opts.remoteUpdatedAt && opts.localLooksCustom) return true
+  if (ts(opts.localUpdatedAt) > ts(opts.remoteUpdatedAt)) return true
+  if (opts.localLooksCustom && opts.remoteLooksSeed) return true
+  return false
+}
+
 export const siteService = {
   async getSettings(): Promise<SiteSettings> {
+    const localRaw = hasStore('settings') ? loadStore('settings', mockSettings) : null
+
     if (canUseSupabaseCms()) {
       try {
         const remote = await supabaseCms.getSettings()
-        if (remote) return remote
+        if (
+          localRaw &&
+          shouldPushLocalToRemote({
+            storeKey: 'settings',
+            localUpdatedAt: localRaw.updatedAt,
+            remoteUpdatedAt: remote?.updatedAt,
+            localLooksCustom: localRaw.businessName !== mockSettings.businessName ||
+              localRaw.logoUrl !== mockSettings.logoUrl ||
+              localRaw.phone !== mockSettings.phone,
+            remoteLooksSeed: !remote || remote.logoUrl === mockSettings.logoUrl,
+          })
+        ) {
+          try {
+            const saved = await supabaseCms.saveSettings({
+              ...localRaw,
+              updatedAt: new Date().toISOString(),
+            })
+            saveStore('settings', saved)
+            return saved
+          } catch (err) {
+            console.warn('[cms] settings local→remote sync failed', err)
+            return localRaw
+          }
+        }
+        if (remote) {
+          saveStore('settings', remote)
+          return remote
+        }
       } catch (err) {
         console.warn('[cms] settings remote read failed', err)
       }
@@ -137,36 +186,60 @@ export const siteService = {
   },
 
   async updateSettings(patch: Partial<SiteSettings>): Promise<SiteSettings> {
-    await delay()
-    const current = loadStore('settings', mockSettings)
+    await delay(40)
+    const current = await this.getSettings()
     assertSiteScope(current.slug)
     if (current.slugLocked && patch.slug && patch.slug !== current.slug) {
       throw new Error('Business slug is locked. Unlock intentionally in Settings to change it.')
     }
     const next = { ...current, ...patch, updatedAt: new Date().toISOString() }
     if (canUseSupabaseCms()) {
-      try {
-        const saved = await supabaseCms.saveSettings(next)
-        saveStore('settings', saved)
-        return saved
-      } catch (err) {
-        console.warn('[cms] settings remote save failed', err)
-      }
+      const saved = await supabaseCms.saveSettings(next)
+      saveStore('settings', saved)
+      return saved
     }
     saveStore('settings', next)
     return next
   },
 
   async getSEO(): Promise<SEOSettings> {
+    const localRaw = hasStore('seo') ? loadStore('seo', mockSEO) : null
+
     if (canUseSupabaseCms()) {
       try {
         const remote = await supabaseCms.getSEO()
-        if (remote) return remote
+        if (
+          localRaw &&
+          shouldPushLocalToRemote({
+            storeKey: 'seo',
+            localUpdatedAt: localRaw.updatedAt,
+            remoteUpdatedAt: remote?.updatedAt,
+            localLooksCustom:
+              localRaw.title !== mockSEO.title || localRaw.ogImage !== mockSEO.ogImage,
+            remoteLooksSeed: !remote || remote.title === mockSEO.title,
+          })
+        ) {
+          try {
+            const saved = await supabaseCms.saveSEO({
+              ...localRaw,
+              updatedAt: new Date().toISOString(),
+            })
+            saveStore('seo', saved)
+            return saved
+          } catch (err) {
+            console.warn('[cms] seo local→remote sync failed', err)
+            return localRaw
+          }
+        }
+        if (remote) {
+          saveStore('seo', remote)
+          return remote
+        }
       } catch (err) {
         console.warn('[cms] seo remote read failed', err)
       }
     }
-    await delay()
+    await delay(40)
     const seo = loadStore('seo', mockSEO)
     if (
       !seo.ogImage ||
@@ -183,32 +256,60 @@ export const siteService = {
   },
 
   async updateSEO(patch: Partial<SEOSettings>): Promise<SEOSettings> {
-    await delay()
-    const current = loadStore('seo', mockSEO)
+    await delay(40)
+    const current = await this.getSEO()
     const next = { ...current, ...patch, updatedAt: new Date().toISOString() }
     if (canUseSupabaseCms()) {
-      try {
-        const saved = await supabaseCms.saveSEO(next)
-        saveStore('seo', saved)
-        return saved
-      } catch (err) {
-        console.warn('[cms] seo remote save failed', err)
-      }
+      const saved = await supabaseCms.saveSEO(next)
+      saveStore('seo', saved)
+      return saved
     }
     saveStore('seo', next)
     return next
   },
 
   async getPageContent(): Promise<PageContent> {
+    const localRaw = hasStore('pageContent') ? loadStore('pageContent', mockPageContent) : null
+
     if (canUseSupabaseCms()) {
       try {
         const remote = await supabaseCms.getPageContent()
-        if (remote) return remote
+        if (
+          localRaw &&
+          shouldPushLocalToRemote({
+            storeKey: 'pageContent',
+            localUpdatedAt: localRaw.updatedAt,
+            remoteUpdatedAt: remote?.updatedAt,
+            localLooksCustom:
+              localRaw.hero?.title !== mockPageContent.hero.title ||
+              localRaw.hero?.description !== mockPageContent.hero.description ||
+              localRaw.welcome?.heading !== mockPageContent.welcome.heading,
+            remoteLooksSeed:
+              !remote?.hero ||
+              remote.hero.title === mockPageContent.hero.title,
+          })
+        ) {
+          try {
+            const saved = await supabaseCms.savePageContent({
+              ...localRaw,
+              updatedAt: new Date().toISOString(),
+            })
+            saveStore('pageContent', saved)
+            return saved
+          } catch (err) {
+            console.warn('[cms] page content local→remote sync failed', err)
+            return localRaw
+          }
+        }
+        if (remote?.hero) {
+          saveStore('pageContent', remote)
+          return remote
+        }
       } catch (err) {
         console.warn('[cms] page content remote read failed', err)
       }
     }
-    await delay()
+    await delay(40)
     const content = loadStore('pageContent', mockPageContent)
     let changed = false
     // Only replace true placeholders — never overwrite uploaded Storage URLs
@@ -254,17 +355,13 @@ export const siteService = {
   },
 
   async updatePageContent(patch: Partial<PageContent>): Promise<PageContent> {
-    await delay()
-    const current = loadStore('pageContent', mockPageContent)
+    await delay(40)
+    const current = await this.getPageContent()
     const next = { ...current, ...patch, updatedAt: new Date().toISOString() }
     if (canUseSupabaseCms()) {
-      try {
-        const saved = await supabaseCms.savePageContent(next)
-        saveStore('pageContent', saved)
-        return saved
-      } catch (err) {
-        console.warn('[cms] page content remote save failed', err)
-      }
+      const saved = await supabaseCms.savePageContent(next)
+      saveStore('pageContent', saved)
+      return saved
     }
     saveStore('pageContent', next)
     return next
@@ -400,11 +497,15 @@ export const serviceService = {
 
 export const staffService = {
   async list(includeInactive = false): Promise<StaffMember[]> {
-    // Local-first for speed. Remote only when VITE_SUPABASE_CMS=true.
     if (canUseSupabaseCms()) {
       try {
         const remote = await supabaseCms.listStaff(includeInactive)
-        if (remote && remote.length > 0) return remote
+        if (remote && remote.length > 0) {
+          saveStore('staff', remote)
+          return remote
+            .filter((s) => includeInactive || s.active)
+            .sort((a, b) => a.sortOrder - b.sortOrder)
+        }
       } catch (err) {
         console.warn('[cms] staff remote read failed', err)
       }
@@ -434,6 +535,14 @@ export const staffService = {
   async create(
     input: Omit<StaffMember, 'id' | 'siteId' | 'createdAt' | 'updatedAt'>,
   ): Promise<StaffMember> {
+    if (canUseSupabaseCms()) {
+      const saved = await supabaseCms.upsertStaff(input)
+      const items = loadStore('staff', mockStaff)
+      const without = items.filter((s) => s.id !== saved.id)
+      without.push(saved)
+      saveStore('staff', without)
+      return saved
+    }
     await delay()
     const items = loadStore('staff', mockStaff)
     const item: StaffMember = {
@@ -445,34 +554,32 @@ export const staffService = {
     }
     items.push(item)
     saveStore('staff', items)
-    if (canUseSupabaseCms()) {
-      try {
-        return await supabaseCms.upsertStaff(input)
-      } catch (err) {
-        console.warn('[cms] staff remote create failed; kept local', err)
-      }
-    }
     return item
   },
 
   async update(id: string, patch: Partial<StaffMember>): Promise<StaffMember> {
+    if (canUseSupabaseCms()) {
+      const current = (await this.list(true)).find((s) => s.id === id)
+      if (!current) throw new Error('Staff member not found')
+      const merged = { ...current, ...patch }
+      const { id: _i, siteId: _s, createdAt: _c, updatedAt: _u, ...rest } = merged
+      const saved = await supabaseCms.upsertStaff({
+        ...rest,
+        id: isUuid(id) ? id : undefined,
+      })
+      const items = loadStore('staff', mockStaff)
+      const idx = items.findIndex((s) => s.id === id || s.id === saved.id)
+      if (idx >= 0) items[idx] = saved
+      else items.push(saved)
+      saveStore('staff', items)
+      return saved
+    }
     await delay()
     const items = loadStore('staff', mockStaff)
     const idx = items.findIndex((s) => s.id === id)
     if (idx < 0) throw new Error('Staff member not found')
     items[idx] = { ...items[idx], ...patch, id, updatedAt: new Date().toISOString() }
     saveStore('staff', items)
-    if (canUseSupabaseCms()) {
-      try {
-        const { id: _i, siteId: _s, createdAt: _c, updatedAt: _u, ...rest } = items[idx]
-        return await supabaseCms.upsertStaff({
-          ...rest,
-          id: isUuid(id) ? id : undefined,
-        })
-      } catch (err) {
-        console.warn('[cms] staff remote update failed; kept local', err)
-      }
-    }
     return items[idx]
   },
 

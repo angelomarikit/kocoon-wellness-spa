@@ -17,13 +17,9 @@ import { getSupabaseClient, isSupabaseConfigured, resolveKocoonSiteId, withTimeo
 import { SITE_SLUG } from '@/lib/constants'
 
 export function canUseSupabaseCms(): boolean {
-  // Remote DB reads were slowing the public site when Supabase was unreachable.
-  // Opt in with VITE_SUPABASE_CMS=true after SQL + keys are confirmed working.
-  // Storage uploads still work whenever VITE_SUPABASE_URL/ANON_KEY are set.
-  return (
-    isSupabaseConfigured() &&
-    String(import.meta.env.VITE_SUPABASE_CMS || '').toLowerCase() === 'true'
-  )
+  // Persist CMS to Supabase whenever URL + anon key are set,
+  // so Incognito / other devices see the same content (not only localStorage).
+  return isSupabaseConfigured()
 }
 
 async function siteIdOrThrow(): Promise<string> {
@@ -37,7 +33,7 @@ async function siteIdOrThrow(): Promise<string> {
 }
 
 async function timed<T>(fn: () => Promise<T>): Promise<T> {
-  return withTimeout(fn(), 8000)
+  return withTimeout(fn(), 5000)
 }
 
 function mapStaff(row: Record<string, unknown>, siteId: string): StaffMember {

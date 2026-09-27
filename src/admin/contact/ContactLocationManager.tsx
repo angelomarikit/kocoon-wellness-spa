@@ -22,9 +22,9 @@ export function ContactLocationManager() {
     try {
       const next = await siteService.updateSettings(settings)
       setSettings(next)
-      toast.success('Contact & location saved')
-    } catch {
-      toast.error('Failed to save')
+      toast.success('Contact & location saved to cloud')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save')
     } finally {
       setSaving(false)
     }

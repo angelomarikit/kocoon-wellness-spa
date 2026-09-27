@@ -26,7 +26,7 @@ export function SettingsManager() {
       })
       setSettings(next)
       setUnlockSlug(false)
-      toast.success('Settings saved')
+      toast.success('Settings saved to cloud')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save')
     } finally {

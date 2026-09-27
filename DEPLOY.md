@@ -256,11 +256,12 @@ Before deploying, open **Environment Variables** and add:
 | ---- | ----- |
 | `VITE_SUPABASE_URL` | Shared Supabase Project URL |
 | `VITE_SUPABASE_ANON_KEY` | Supabase **anon public** key (from Settings → API; usually starts with `eyJ...`) |
-| `VITE_SUPABASE_CMS` | Leave empty for fast site. Set `true` only after SQL works if you want DB sync |
 | `VITE_SITE_SLUG` | `kocoon-wellness-spa` |
 | `VITE_SITE_URL` | Your live URL (e.g. `https://kocoonwellnessspa.vercel.app` or custom domain) |
 
-Apply them to **Production** (and Preview if you want preview deploys connected too).
+These two Supabase keys are **required** so admin “Save” writes to the cloud. Without them, edits only live in that browser’s localStorage and **disappear in Incognito / other devices**.
+
+Apply them to **Production** (and Preview if you want preview deploys connected too), then **redeploy**. After deploy, open `/admin` once and click **Save Changes** on Page Content (and Settings/SEO if you edited those) so cloud rows are created.
 
 ### 3.3 Deploy
 
@@ -283,11 +284,14 @@ Admin CMS: `/admin` (login at `/admin/login`)
 
 ## 4. After go-live checklist
 
-- [ ] SQL ran successfully (`cms_sites` has `kocoon-wellness-spa`)
+- [ ] SQL ran successfully (`cms_sites` has `kocoon-wellness-spa`) — run **001**, **002**, and **003**
 - [ ] Storage bucket `kocoon-media` exists (002 SQL)
+- [ ] Write policies applied (003 SQL) — required for admin Save to reach the cloud
 - [ ] Admin Auth user created and linked in `cms_site_admins`
 - [ ] GitHub repo has latest code (no `.env` secrets)
 - [ ] Vercel env vars set correctly (`VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`)
+- [ ] After deploy: open `/admin` (auto-syncs this browser’s edits to cloud) or click **Save Changes**
+- [ ] Incognito check: open the live site URL — your edits still show (not placeholders)
 - [ ] Homepage loads on the Vercel URL
 - [ ] `/admin` photo upload shows “Saved to Supabase Storage”
 - [ ] Phones, Messenger links, and both branch addresses look correct
@@ -303,7 +307,7 @@ npm install
 npm run dev
 ```
 
-Until Supabase env vars are set, the CMS still works via local browser storage (`kocoon-cms:`). After env is connected, keep all data scoped to slug `kocoon-wellness-spa`.
+With Supabase URL + anon key set (and SQL migrations applied), admin saves go to `cms_*` tables so every browser sees the same content. Without those env vars, the CMS falls back to local browser storage only (`kocoon-cms:`) — that will **not** appear in Incognito.
 
 ---
 

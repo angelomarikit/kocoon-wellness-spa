@@ -15,6 +15,15 @@ export function loadStore<T>(key: string, fallback: T): T {
   }
 }
 
+/** True when this browser has previously saved CMS data under this key. */
+export function hasStore(key: string): boolean {
+  try {
+    return localStorage.getItem(`${STORAGE_PREFIX}${key}`) != null
+  } catch {
+    return false
+  }
+}
+
 export function saveStore<T>(key: string, value: T): void {
   localStorage.setItem(`${STORAGE_PREFIX}${key}`, JSON.stringify(value))
 }

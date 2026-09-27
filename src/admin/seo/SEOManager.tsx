@@ -29,9 +29,9 @@ export function SEOManager() {
           .filter(Boolean),
       })
       setSeo(next)
-      toast.success('SEO settings saved')
-    } catch {
-      toast.error('Failed to save SEO')
+      toast.success('SEO settings saved to cloud')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save SEO')
     } finally {
       setSaving(false)
     }
