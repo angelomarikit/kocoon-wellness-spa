@@ -1,16 +1,18 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Clock, Facebook, MapPin, Phone } from 'lucide-react'
+import { Check, Clock, Copy, Facebook, MapPin, Phone } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/common/Button'
 import { Container } from '@/components/common/Container'
+import { Modal } from '@/components/common/Modal'
 import { Reveal } from '@/components/common/Reveal'
 import { SectionHeading } from '@/components/common/SectionHeading'
 import {
   buildMessengerLink,
   formatInquiryMessengerText,
+  formatInquiryMessengerTextShort,
   formatPhoneDisplay,
   messengerUrlForBranch,
   openMessengerChat,
@@ -38,11 +40,21 @@ interface ContactProps {
   services: Service[]
 }
 
+interface HandoffState {
+  branch: 'Baguio' | 'Baclaran'
+  draft: string
+  messengerHref: string
+}
+
 export function Contact({ settings, services }: ContactProps) {
   const [submitting, setSubmitting] = useState(false)
+  const [handoff, setHandoff] = useState<HandoffState | null>(null)
+  const [copied, setCopied] = useState(false)
+  const draftRef = useRef<HTMLTextAreaElement>(null)
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -56,6 +68,27 @@ export function Contact({ settings, services }: ContactProps) {
     },
   })
 
+  useEffect(() => {
+    if (!handoff) return
+    const el = draftRef.current
+    if (!el) return
+    el.focus()
+    el.select()
+  }, [handoff])
+
+  async function copyDraft(text: string) {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2500)
+      return true
+    } catch {
+      draftRef.current?.select()
+      toast.error('Could not copy automatically — select the text and copy manually.')
+      return false
+    }
+  }
+
   async function onSubmit(values: FormValues) {
     setSubmitting(true)
     try {
@@ -68,17 +101,25 @@ export function Contact({ settings, services }: ContactProps) {
         preferredDate: values.preferredDate,
         message: values.message,
       })
+      const shortDraft = formatInquiryMessengerTextShort({
+        branch: values.branch,
+        name: values.name,
+        phone: values.phone,
+        email: values.email,
+        service: values.service,
+        preferredDate: values.preferredDate,
+        message: values.message,
+      })
 
-      // m.me/{pageId}?text=… autofills the Messenger compose box for both branches
-      const messengerHref = buildMessengerLink(messengerUrlForBranch(values.branch), draft)
-
-      openMessengerChat(messengerHref)
-      void navigator.clipboard.writeText(draft).catch(() => undefined)
-
-      toast.success(
-        `${values.branch}: your details should appear in Messenger — review and tap Send.`,
-        { duration: 9000 },
+      // Best-effort URL autofill (Facebook often ignores this if you already chatted)
+      const messengerHref = buildMessengerLink(
+        messengerUrlForBranch(values.branch),
+        shortDraft,
       )
+
+      setHandoff({ branch: values.branch, draft, messengerHref })
+      setCopied(false)
+      await copyDraft(draft)
 
       void inquiryService
         .create({
@@ -91,11 +132,31 @@ export function Contact({ settings, services }: ContactProps) {
           branch: values.branch,
         })
         .catch((err) => console.warn('[contact] inquiry save failed', err))
+
+      reset({
+        name: '',
+        phone: '',
+        email: '',
+        branch: values.branch,
+        service: '',
+        preferredDate: '',
+        message: '',
+      })
     } catch {
       toast.error('Something went wrong. Please try again or call us.')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function openMessengerFromHandoff() {
+    if (!handoff) return
+    void copyDraft(handoff.draft)
+    openMessengerChat(handoff.messengerHref)
+    toast.success(
+      'Messenger opened. If the box is empty, press Ctrl+V (Cmd+V on Mac) to paste, then Send.',
+      { duration: 10000 },
+    )
   }
 
   return (
@@ -197,9 +258,9 @@ export function Contact({ settings, services }: ContactProps) {
             >
               <h3 className="font-display text-2xl text-cream">Send an Inquiry</h3>
               <p className="mt-2 text-sm text-muted">
-                Choose a branch, then continue in Facebook Messenger and tap{' '}
-                <span className="text-cream">Send</span> — that is what delivers the booking to the
-                spa’s Page inbox.
+                Fill in your details. We’ll prepare the exact message for the{' '}
+                <span className="text-cream">Baguio</span> or <span className="text-cream">Baclaran</span>{' '}
+                Facebook Page so you can send it in Messenger.
               </p>
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -246,17 +307,67 @@ export function Contact({ settings, services }: ContactProps) {
 
               <Button type="submit" className="mt-6 w-full sm:w-auto" disabled={submitting}>
                 <Facebook className="h-4 w-4" />
-                {submitting ? 'Opening Messenger…' : 'Message on Facebook'}
+                {submitting ? 'Preparing…' : 'Prepare Messenger Message'}
               </Button>
               <p className="mt-3 text-xs text-muted">
-                Messenger opens with your inquiry filled in. Review the text, then tap{' '}
-                <span className="text-cream">Send</span> so it reaches the spa’s Page inbox. If the
-                box is empty, paste (details are also copied) and send.
+                Next you’ll see your full inquiry ready to copy, then open the correct branch Page
+                in Messenger and tap Send.
               </p>
             </form>
           </Reveal>
         </div>
       </Container>
+
+      <Modal
+        open={!!handoff}
+        onClose={() => setHandoff(null)}
+        title={`${handoff?.branch ?? ''} inquiry ready`}
+        size="md"
+      >
+        {handoff && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted">
+              Facebook often leaves the Messenger box empty if you already chatted with this Page.
+              Your form details are ready below — they’re also copied. Open Messenger, paste, then
+              tap <span className="text-cream">Send</span>.
+            </p>
+
+            <textarea
+              ref={draftRef}
+              readOnly
+              className="field-input min-h-44 font-mono text-sm leading-relaxed"
+              value={handoff.draft}
+              onFocus={(e) => e.currentTarget.select()}
+            />
+
+            <div className="flex flex-wrap gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void copyDraft(handoff.draft)}
+              >
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied ? 'Copied' : 'Copy message'}
+              </Button>
+              <Button type="button" onClick={openMessengerFromHandoff}>
+                <Facebook className="h-4 w-4" />
+                Open {handoff.branch} Messenger
+              </Button>
+            </div>
+
+            <ol className="list-decimal space-y-1 pl-5 text-xs text-muted">
+              <li>Tap “Open {handoff.branch} Messenger”.</li>
+              <li>
+                In the message box, press <span className="text-cream">Ctrl+V</span> (Windows) or{' '}
+                <span className="text-cream">Cmd+V</span> (Mac) to paste.
+              </li>
+              <li>
+                Tap <span className="text-cream">Send</span> so it appears in the spa’s Page inbox.
+              </li>
+            </ol>
+          </div>
+        )}
+      </Modal>
     </section>
   )
 }

@@ -84,7 +84,7 @@ export function messengerUrlForBranch(branch: 'Baguio' | 'Baclaran'): string {
   return branch === 'Baclaran' ? BACLARAN_MESSENGER_URL : BAGUIO_MESSENGER_URL
 }
 
-/** Build inquiry draft text for Messenger autofill. */
+/** Build inquiry draft text for Messenger (clipboard / paste — always reliable). */
 export function formatInquiryMessengerText(input: {
   branch: string
   name: string
@@ -107,6 +107,31 @@ export function formatInquiryMessengerText(input: {
     input.message,
   ]
   return lines.filter((line) => line !== null).join('\n')
+}
+
+/**
+ * Short one-line draft for m.me?text= (Facebook often ignores long / multi-line,
+ * and ignores text= entirely when a chat already exists).
+ */
+export function formatInquiryMessengerTextShort(input: {
+  branch: string
+  name: string
+  phone: string
+  email?: string
+  service: string
+  preferredDate: string
+  message: string
+}): string {
+  const parts = [
+    `Hi Kocoon (${input.branch})!`,
+    `Name: ${input.name}`,
+    `Phone: ${input.phone}`,
+    input.email?.trim() ? `Email: ${input.email.trim()}` : null,
+    `Service: ${input.service}`,
+    `Date: ${input.preferredDate}`,
+    `Msg: ${input.message}`,
+  ].filter((p): p is string => Boolean(p))
+  return parts.join(' · ').slice(0, 280)
 }
 
 /** Open Messenger; fall back if the browser blocks window.open. */
