@@ -37,6 +37,8 @@ async function timed<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 function mapStaff(row: Record<string, unknown>, siteId: string): StaffMember {
+  const branchRaw = String(row.branch ?? 'Baguio')
+  const branch: StaffMember['branch'] = branchRaw === 'Manila' ? 'Manila' : 'Baguio'
   return {
     id: String(row.id),
     siteId,
@@ -48,6 +50,7 @@ function mapStaff(row: Record<string, unknown>, siteId: string): StaffMember {
     yearsExperience: Number(row.years_experience ?? 0),
     imageUrl: String(row.image_url ?? ''),
     socialUrl: String(row.social_url ?? ''),
+    branch,
     featured: Boolean(row.featured),
     active: Boolean(row.is_active),
     sortOrder: Number(row.sort_order ?? 0),
@@ -133,6 +136,7 @@ export const supabaseCms = {
       years_experience: input.yearsExperience,
       image_url: input.imageUrl,
       social_url: input.socialUrl,
+      branch: input.branch === 'Manila' ? 'Manila' : 'Baguio',
       featured: input.featured,
       is_active: input.active,
       sort_order: input.sortOrder,

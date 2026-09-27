@@ -15,6 +15,14 @@ export const DEFAULT_PHONE_TEL = `tel:${BAGUIO_GLOBE}`
 export const DEFAULT_ADDRESS = '116 Purok Bubon, Loakan Proper, Baguio City'
 export const DEFAULT_BUSINESS_NAME = 'Kocoon Wellness Spa'
 
+/** Staff / team branch tabs (public + admin). */
+export const STAFF_BRANCHES = ['Baguio', 'Manila'] as const
+
+export const STAFF_BRANCH_LABELS: Record<(typeof STAFF_BRANCHES)[number], string> = {
+  Baguio: 'Baguio Branch',
+  Manila: 'Manila Branch',
+}
+
 export function toTelHref(phone: string): string {
   return `tel:${phone.replace(/[^\d+]/g, '')}`
 }

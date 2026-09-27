@@ -615,6 +615,7 @@ export const mockStaff: StaffMember[] = [
     imageUrl:
       'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=800&q=80',
     socialUrl: '',
+    branch: 'Baguio',
     featured: true,
     active: true,
     sortOrder: 1,
@@ -633,6 +634,7 @@ export const mockStaff: StaffMember[] = [
     imageUrl:
       'https://images.unsplash.com/photo-1594824476967-48c8b964273f?auto=format&fit=crop&w=800&q=80',
     socialUrl: '',
+    branch: 'Baguio',
     featured: true,
     active: true,
     sortOrder: 2,
@@ -651,6 +653,7 @@ export const mockStaff: StaffMember[] = [
     imageUrl:
       'https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&w=800&q=80',
     socialUrl: '',
+    branch: 'Manila',
     featured: true,
     active: true,
     sortOrder: 3,
@@ -669,6 +672,7 @@ export const mockStaff: StaffMember[] = [
     imageUrl:
       'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80',
     socialUrl: '',
+    branch: 'Manila',
     featured: false,
     active: true,
     sortOrder: 4,

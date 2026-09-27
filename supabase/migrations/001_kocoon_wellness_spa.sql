@@ -176,6 +176,7 @@ create table if not exists public.cms_staff (
   years_experience integer not null default 0,
   image_url text not null default '',
   social_url text not null default '',
+  branch text not null default 'Baguio',
   featured boolean not null default false,
   is_active boolean not null default true,
   sort_order integer not null default 0,
@@ -662,24 +663,28 @@ begin
       'Just yourself. Wear comfortable clothing. We provide essentials for your treatment. Feel free to bring personal toiletries if preferred.', true, 6);
 
   insert into public.cms_staff (
-    site_id, name, position, specialty, bio, credentials, years_experience, image_url, featured, is_active, sort_order
+    site_id, name, position, specialty, bio, credentials, years_experience, image_url, branch, featured, is_active, sort_order
   ) values
     (v_site_id, 'Maria Santos', 'Senior Wellness Therapist', 'Therapeutic & relaxation massage',
       'Specializing in therapeutic massage and relaxation treatments with a calm, attentive approach.',
       'Licensed Massage Therapist', 9,
-      'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=800&q=80', true, true, 1),
+      'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=800&q=80',
+      'Baguio', true, true, 1),
     (v_site_id, 'Ana Reyes', 'Wellness Therapist', 'Aromatherapy & hot stone',
       'Creates restorative sessions that blend aromatherapy with careful, grounding technique.',
       'Certified Spa Therapist', 6,
-      'https://images.unsplash.com/photo-1594824476967-48c8b964273f?auto=format&fit=crop&w=800&q=80', true, true, 2),
+      'https://images.unsplash.com/photo-1594824476967-48c8b964273f?auto=format&fit=crop&w=800&q=80',
+      'Baguio', true, true, 2),
     (v_site_id, 'Liza Mendoza', 'Senior Therapist', 'Deep tissue & sports recovery',
       'Focused on relieving deep tension while keeping every guest comfortable and informed.',
       'Therapeutic Massage Specialist', 8,
-      'https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&w=800&q=80', true, true, 3),
+      'https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&w=800&q=80',
+      'Manila', true, true, 3),
     (v_site_id, 'Carla Domingo', 'Wellness Therapist', 'Reflexology & foot therapy',
       'Known for gentle precision and a welcoming presence that helps guests settle quickly.',
       'Reflexology Practitioner', 5,
-      'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80', false, true, 4);
+      'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80',
+      'Manila', false, true, 4);
 
   raise notice 'OK: cms schema ready for slug=% site_id=%', v_slug, v_site_id;
 end $$;

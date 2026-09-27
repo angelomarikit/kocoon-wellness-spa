@@ -159,6 +159,8 @@ export interface Service {
   updatedAt: string
 }
 
+export type StaffBranch = 'Baguio' | 'Manila'
+
 export interface StaffMember {
   id: string
   siteId: string
@@ -170,6 +172,8 @@ export interface StaffMember {
   yearsExperience: number
   imageUrl: string
   socialUrl: string
+  /** Branch location this therapist works at */
+  branch: StaffBranch
   featured: boolean
   active: boolean
   sortOrder: number

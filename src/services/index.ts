@@ -501,8 +501,12 @@ export const staffService = {
       try {
         const remote = await supabaseCms.listStaff(includeInactive)
         if (remote && remote.length > 0) {
-          saveStore('staff', remote)
-          return remote
+          const normalized = remote.map((s) => ({
+            ...s,
+            branch: (s.branch === 'Manila' ? 'Manila' : 'Baguio') as StaffMember['branch'],
+          }))
+          saveStore('staff', normalized)
+          return normalized
             .filter((s) => includeInactive || s.active)
             .sort((a, b) => a.sortOrder - b.sortOrder)
         }
@@ -515,11 +519,16 @@ export const staffService = {
     // Drop broken blob/data previews — placeholders remain until a Storage upload
     let changed = false
     items = items.map((s) => {
+      let next = s
       if (s.imageUrl?.startsWith('blob:') || s.imageUrl?.startsWith('data:')) {
         changed = true
-        return { ...s, imageUrl: '' }
+        next = { ...next, imageUrl: '' }
       }
-      return s
+      if (next.branch !== 'Baguio' && next.branch !== 'Manila') {
+        changed = true
+        next = { ...next, branch: 'Baguio' }
+      }
+      return next
     })
     if (changed) saveStore('staff', items)
     return items

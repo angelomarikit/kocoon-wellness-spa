@@ -66,6 +66,17 @@ What this does (safe for other projects):
 
 **Production image flow:** Upload in `/admin` → file goes to Storage → permanent `https://…/kocoon-media/kocoon-wellness-spa/...` URL is saved → site loads that URL after refresh. Placeholder/Unsplash images are only temporary until you upload.
 
+### 1.2c Staff branch column (Baguio / Manila tabs)
+
+1. SQL Editor → **New query**
+2. Paste and run:
+
+   ```
+   supabase/migrations/004_cms_staff_branch.sql
+   ```
+
+This adds a `branch` field on `cms_staff` so the Team section and admin can filter by **Baguio Branch** / **Manila Branch**.
+
 ### 1.3 Copy API keys
 
 1. Left sidebar → **Project Settings** → **API**
@@ -284,9 +295,10 @@ Admin CMS: `/admin` (login at `/admin/login`)
 
 ## 4. After go-live checklist
 
-- [ ] SQL ran successfully (`cms_sites` has `kocoon-wellness-spa`) — run **001**, **002**, and **003**
+- [ ] SQL ran successfully (`cms_sites` has `kocoon-wellness-spa`) — run **001**, **002**, **003**, and **004**
 - [ ] Storage bucket `kocoon-media` exists (002 SQL)
 - [ ] Write policies applied (003 SQL) — required for admin Save to reach the cloud
+- [ ] Staff branch column applied (004 SQL) — Baguio / Manila team tabs
 - [ ] Admin Auth user created and linked in `cms_site_admins`
 - [ ] GitHub repo has latest code (no `.env` secrets)
 - [ ] Vercel env vars set correctly (`VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`)

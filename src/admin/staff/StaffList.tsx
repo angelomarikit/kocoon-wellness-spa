@@ -1,15 +1,18 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/common/Button'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { ImageUpload } from '@/components/common/ImageUpload'
 import { Modal } from '@/components/common/Modal'
+import { STAFF_BRANCHES, STAFF_BRANCH_LABELS } from '@/lib/constants'
+import { cn } from '@/lib/utils'
 import { staffService } from '@/services'
-import type { StaffMember } from '@/types'
+import type { StaffBranch, StaffMember } from '@/types'
 
 export function StaffList() {
   const [items, setItems] = useState<StaffMember[]>([])
+  const [branchTab, setBranchTab] = useState<StaffBranch>('Baguio')
   const [editing, setEditing] = useState<StaffMember | null>(null)
   const [creating, setCreating] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -22,12 +25,20 @@ export function StaffList() {
     void refresh()
   }, [])
 
+  const filtered = useMemo(
+    () =>
+      items.filter((item) => (item.branch === 'Manila' ? 'Manila' : 'Baguio') === branchTab),
+    [items, branchTab],
+  )
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl text-cream">Staff</h1>
-          <p className="mt-1 text-sm text-muted">Manage therapists and wellness team profiles.</p>
+          <p className="mt-1 text-sm text-muted">
+            Manage therapists by branch — Baguio or Manila.
+          </p>
         </div>
         <Button onClick={() => setCreating(true)}>
           <Plus className="h-4 w-4" />
@@ -35,55 +46,94 @@ export function StaffList() {
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {items.map((item) => (
-          <article key={item.id} className="overflow-hidden rounded-xl border border-border bg-surface">
-            <div className="aspect-[4/3] w-full bg-bg">
-              {item.imageUrl && !item.imageUrl.startsWith('blob:') ? (
-                <img
-                  src={item.imageUrl}
-                  alt={item.name}
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none'
-                  }}
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-xs text-muted">
-                  No photo — re-upload
-                </div>
+      <div
+        className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        role="tablist"
+        aria-label="Staff branches"
+      >
+        {STAFF_BRANCHES.map((branch) => {
+          const selected = branch === branchTab
+          const count = items.filter(
+            (item) => (item.branch === 'Manila' ? 'Manila' : 'Baguio') === branch,
+          ).length
+          return (
+            <button
+              key={branch}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              onClick={() => setBranchTab(branch)}
+              className={cn(
+                'shrink-0 rounded-full border px-4 py-2 text-sm uppercase tracking-wider transition',
+                selected
+                  ? 'border-gold/50 bg-gold/15 text-gold'
+                  : 'border-border bg-surface text-muted-light hover:border-gold/30 hover:text-cream',
               )}
-            </div>
-            <div className="p-4">
-              <h3 className="font-medium text-cream">{item.name}</h3>
-              <p className="text-sm text-gold">{item.position}</p>
-              <p className="mt-1 text-xs text-muted">{item.specialty}</p>
-              <p className="mt-2 text-xs text-muted-light">
-                {item.active ? 'Active' : 'Hidden'}
-                {item.featured ? ' · Featured' : ''}
-              </p>
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  className="rounded-md border border-border p-2 text-muted hover:text-cream"
-                  onClick={() => setEditing(item)}
-                  aria-label="Edit"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  className="rounded-md border border-border p-2 text-muted hover:text-cream"
-                  onClick={() => setDeleteId(item.id)}
-                  aria-label="Delete"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </article>
-        ))}
+            >
+              {STAFF_BRANCH_LABELS[branch]}
+              <span className="ml-2 text-xs opacity-70">({count})</span>
+            </button>
+          )
+        })}
       </div>
+
+      {filtered.length === 0 ? (
+        <p className="rounded-xl border border-border bg-surface px-4 py-8 text-center text-sm text-muted">
+          No staff for {STAFF_BRANCH_LABELS[branchTab]} yet. Add someone and set their branch.
+        </p>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((item) => (
+            <article key={item.id} className="overflow-hidden rounded-xl border border-border bg-surface">
+              <div className="aspect-[4/3] w-full bg-bg">
+                {item.imageUrl && !item.imageUrl.startsWith('blob:') ? (
+                  <img
+                    src={item.imageUrl}
+                    alt={item.name}
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none'
+                    }}
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-xs text-muted">
+                    No photo — re-upload
+                  </div>
+                )}
+              </div>
+              <div className="p-4">
+                <h3 className="font-medium text-cream">{item.name}</h3>
+                <p className="text-sm text-gold">{item.position}</p>
+                <p className="mt-1 text-xs text-muted">{item.specialty}</p>
+                <p className="mt-2 text-xs text-muted-light">
+                  {STAFF_BRANCH_LABELS[item.branch === 'Manila' ? 'Manila' : 'Baguio']}
+                  {' · '}
+                  {item.active ? 'Active' : 'Hidden'}
+                  {item.featured ? ' · Featured' : ''}
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    className="rounded-md border border-border p-2 text-muted hover:text-cream"
+                    onClick={() => setEditing(item)}
+                    aria-label="Edit"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-md border border-border p-2 text-muted hover:text-cream"
+                    onClick={() => setDeleteId(item.id)}
+                    aria-label="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
 
       <Modal
         open={creating || !!editing}
@@ -95,13 +145,15 @@ export function StaffList() {
       >
         <StaffForm
           initial={editing}
+          defaultBranch={branchTab}
           onCancel={() => {
             setCreating(false)
             setEditing(null)
           }}
-          onSaved={async () => {
+          onSaved={async (savedBranch) => {
             setCreating(false)
             setEditing(null)
+            setBranchTab(savedBranch)
             toast.success('Staff saved')
             await refresh()
           }}
@@ -129,11 +181,13 @@ export function StaffList() {
 
 function StaffForm({
   initial,
+  defaultBranch,
   onSaved,
   onCancel,
 }: {
   initial?: StaffMember | null
-  onSaved: () => void
+  defaultBranch: StaffBranch
+  onSaved: (branch: StaffBranch) => void
   onCancel: () => void
 }) {
   const [saving, setSaving] = useState(false)
@@ -146,6 +200,7 @@ function StaffForm({
     yearsExperience: initial?.yearsExperience ?? 1,
     imageUrl: initial?.imageUrl ?? '',
     socialUrl: initial?.socialUrl ?? '',
+    branch: (initial?.branch === 'Manila' ? 'Manila' : initial ? 'Baguio' : defaultBranch) as StaffBranch,
     featured: initial?.featured ?? false,
     active: initial?.active ?? true,
     sortOrder: initial?.sortOrder ?? 99,
@@ -164,7 +219,7 @@ function StaffForm({
       const payload = { ...form, imageUrl }
       if (initial) await staffService.update(initial.id, payload)
       else await staffService.create(payload)
-      onSaved()
+      onSaved(form.branch)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save staff')
     } finally {
@@ -183,6 +238,23 @@ function StaffForm({
           setForm((prev) => ({ ...prev, imageUrl: url }))
         }}
       />
+      <label className="text-sm">
+        <span className="mb-1.5 block text-muted-light">Branch</span>
+        <select
+          className="field-input"
+          required
+          value={form.branch}
+          onChange={(e) =>
+            setForm({ ...form, branch: e.target.value === 'Manila' ? 'Manila' : 'Baguio' })
+          }
+        >
+          {STAFF_BRANCHES.map((branch) => (
+            <option key={branch} value={branch}>
+              {STAFF_BRANCH_LABELS[branch]}
+            </option>
+          ))}
+        </select>
+      </label>
       <label className="text-sm">
         <span className="mb-1.5 block text-muted-light">Full Name</span>
         <input
