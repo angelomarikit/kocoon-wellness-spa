@@ -158,11 +158,11 @@ export function HomePage() {
         <Team staff={staff} />
         <Gallery items={gallery} />
         <Testimonials items={testimonials} />
-        <BookingCta content={content.bookingCta} />
+        <BookingCta content={content.bookingCta} settings={settings} />
         <FAQ items={faqs} />
-        <Contact settings={settings} />
+        <Contact settings={settings} services={services} />
       </main>
-      <Footer settings={settings} content={content.footer} />
+      <Footer settings={settings} content={content} />
     </>
   )
 }
