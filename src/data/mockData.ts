@@ -90,7 +90,7 @@ export const mockPageContent: PageContent = {
       'Experience personalized wellness and relaxation at Kocoon Wellness Spa in the cool and calming atmosphere of Baguio City.',
     primaryButton: 'Book an Appointment',
     secondaryButton: 'Explore Services',
-    imageUrl: '/hero.jpg',
+    imageUrl: '/hero-poster.jpg',
     videoUrl: '/hero.mp4',
   },
   welcome: {

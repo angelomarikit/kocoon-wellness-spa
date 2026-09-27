@@ -133,13 +133,14 @@ export function Hero({ content }: HeroProps) {
                   loop
                   playsInline
                   preload="auto"
+                  poster={content.imageUrl || '/hero-poster.jpg'}
                   aria-label="Kocoon Wellness Spa atmosphere video"
                 >
                   <source src={content.videoUrl} type="video/mp4" />
                 </video>
               ) : (
                 <img
-                  src={content.imageUrl}
+                  src={content.imageUrl || '/hero-poster.jpg'}
                   alt="Guest relaxing during a spa treatment at Kocoon Wellness Spa"
                   className="h-full w-full object-cover"
                   fetchPriority="high"

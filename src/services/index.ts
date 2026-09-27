@@ -163,9 +163,10 @@ export const siteService = {
     if (
       !content.hero.imageUrl ||
       content.hero.imageUrl.includes('unsplash.com') ||
-      content.hero.imageUrl.includes('photo-1540555700478')
+      content.hero.imageUrl.includes('photo-1540555700478') ||
+      content.hero.imageUrl === '/hero.jpg'
     ) {
-      content.hero.imageUrl = '/hero.jpg'
+      content.hero.imageUrl = '/hero-poster.jpg'
       changed = true
     }
     if (!content.welcome.imageUrl || content.welcome.imageUrl.includes('unsplash.com')) {
