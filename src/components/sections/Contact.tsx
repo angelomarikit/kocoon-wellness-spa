@@ -8,7 +8,7 @@ import { Button } from '@/components/common/Button'
 import { Container } from '@/components/common/Container'
 import { Reveal } from '@/components/common/Reveal'
 import { SectionHeading } from '@/components/common/SectionHeading'
-import { BACLARAN_MESSENGER_URL, buildMessengerLink, formatPhoneDisplay, toTelHref } from '@/lib/constants'
+import { BACLARAN_MESSENGER_URL, BAGUIO_MESSENGER_URL, buildMessengerLink, formatPhoneDisplay, toTelHref } from '@/lib/constants'
 import { inquiryService } from '@/services'
 import type { Service, SiteSettings } from '@/types'
 
@@ -33,12 +33,16 @@ interface ContactProps {
 
 function resolveMessengerUrl(settings: SiteSettings, branch: 'Baguio' | 'Baclaran'): string {
   if (branch === 'Baclaran') {
-    const baclaran = (settings.messengerUrlBaclaran || settings.facebookUrlBaclaran || '').trim()
-    // Never fall back to Baguio Messenger for Baclaran — wrong inbox
+    const baclaran = (settings.messengerUrlBaclaran || '').trim()
+    // Never fall back to Baguio — wrong inbox. Use known-good Manila link.
     if (!baclaran || baclaran.includes('1342439362286859')) return BACLARAN_MESSENGER_URL
     return baclaran
   }
-  return settings.messengerUrl || settings.facebookUrl
+
+  const baguio = (settings.messengerUrl || '').trim()
+  // Same pattern as Manila: always land on the Baguio Page thread
+  if (!baguio || !baguio.includes('1141805542359287')) return BAGUIO_MESSENGER_URL
+  return baguio
 }
 
 export function Contact({ settings, services }: ContactProps) {

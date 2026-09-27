@@ -58,10 +58,11 @@ function shouldPushLocalToRemote(opts: {
   return ts(opts.localUpdatedAt) > ts(opts.remoteUpdatedAt)
 }
 
-/** Keep Baclaran Messenger on the correct page ID (fixes legacy typo …859 → …839). */
+/** Keep Messenger links on the correct Page thread IDs for each branch. */
 function normalizeMessengerSettings(settings: SiteSettings): boolean {
   let changed = false
-  if (!settings.messengerUrl?.trim()) {
+  const baguio = settings.messengerUrl?.trim() ?? ''
+  if (!baguio || !baguio.includes('1141805542359287')) {
     settings.messengerUrl = BAGUIO_MESSENGER_URL
     changed = true
   }
@@ -69,7 +70,8 @@ function normalizeMessengerSettings(settings: SiteSettings): boolean {
   if (
     !baclaran ||
     baclaran.includes('1342439362286859') ||
-    baclaran === BACLARAN_MESSENGER_URL_LEGACY_TYPO
+    baclaran === BACLARAN_MESSENGER_URL_LEGACY_TYPO ||
+    !baclaran.includes('1342439362286839')
   ) {
     settings.messengerUrlBaclaran = BACLARAN_MESSENGER_URL
     changed = true
@@ -209,9 +211,10 @@ export const siteService = {
       settings.messengerUrlBaclaran === undefined ||
       !settings.messengerUrlBaclaran ||
       !settings.messengerUrl ||
-      settings.messengerUrlBaclaran.includes('1342439362286859')
+      settings.messengerUrlBaclaran.includes('1342439362286859') ||
+      !settings.messengerUrl.includes('1141805542359287')
     ) {
-      if (!settings.messengerUrl) settings.messengerUrl = BAGUIO_MESSENGER_URL
+      settings.messengerUrl = BAGUIO_MESSENGER_URL
       settings.messengerUrlBaclaran = BACLARAN_MESSENGER_URL
       changed = true
     }

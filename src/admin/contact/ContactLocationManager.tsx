@@ -89,7 +89,7 @@ export function ContactLocationManager() {
           />
         </label>
         <label className="text-sm sm:col-span-2">
-          <span className="mb-1.5 block text-muted-light">Messenger / m.me (Baclaran)</span>
+          <span className="mb-1.5 block text-muted-light">Messenger / m.me (Baclaran / Manila)</span>
           <input
             className="field-input"
             value={settings.messengerUrlBaclaran ?? ''}
@@ -98,12 +98,12 @@ export function ContactLocationManager() {
           />
         </label>
         <p className="text-xs text-muted sm:col-span-2">
-          Best format: the official <strong className="text-cream">m.me/YourPageUsername</strong> from
-          Facebook Page → Settings → Messaging (or Professional dashboard → Inbox).{' '}
-          <code className="text-cream">facebook.com/messages/t/…</code> page IDs also work. The website
-          only opens Messenger — guests must tap <strong className="text-cream">Send</strong> for the
-          message to appear in your Page inbox. Test while logged in as a personal account (not as the
-          Page).
+          Baguio must use{' '}
+          <code className="text-cream">https://www.facebook.com/messages/t/1141805542359287</code>.
+          Manila / Baclaran must use{' '}
+          <code className="text-cream">https://www.facebook.com/messages/t/1342439362286839</code>.
+          Guests still need to tap <strong className="text-cream">Send</strong> in Messenger for the
+          message to reach the Page inbox. Test while logged in as a personal account (not as the Page).
         </p>
       </section>
 
