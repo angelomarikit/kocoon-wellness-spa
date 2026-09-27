@@ -73,10 +73,10 @@ export const mockSEO: SEOSettings = {
   ogTitle: 'Kocoon Wellness Spa — Restore. Renew. Reconnect.',
   ogDescription:
     'A premium wellness destination in Loakan Proper, Baguio City. Book your massage and relaxation experience today.',
-  ogImage: '/logo.png',
+  ogImage: '/og-image.jpg',
   facebookUrl: '',
   instagramUrl: '',
-  canonicalUrl: 'https://kocoonwellnessspa.vercel.app',
+  canonicalUrl: 'https://kocoon-wellness-spa.vercel.app',
   updatedAt: now,
 }
 

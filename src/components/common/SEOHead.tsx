@@ -7,11 +7,20 @@ interface SEOHeadProps {
   settings: SiteSettings
 }
 
+/** Social crawlers need an absolute https URL for og:image. */
+function toAbsoluteUrl(pathOrUrl: string): string {
+  const raw = pathOrUrl.trim()
+  if (!raw) return `${SITE_URL.replace(/\/$/, '')}/og-image.jpg`
+  if (/^https?:\/\//i.test(raw)) return raw
+  const base = SITE_URL.replace(/\/$/, '')
+  return `${base}${raw.startsWith('/') ? raw : `/${raw}`}`
+}
+
 export function SEOHead({ seo, settings }: SEOHeadProps) {
   const canonical = seo.canonicalUrl || SITE_URL
   const title = seo.title
   const description = seo.metaDescription
-  const ogImage = seo.ogImage || settings.logoUrl
+  const ogImage = toAbsoluteUrl(seo.ogImage || '/og-image.jpg' || settings.logoUrl)
 
   const structuredData = {
     '@context': 'https://schema.org',
@@ -54,6 +63,7 @@ export function SEOHead({ seo, settings }: SEOHeadProps) {
       <meta property="og:title" content={seo.ogTitle || title} />
       <meta property="og:description" content={seo.ogDescription || description} />
       <meta property="og:image" content={ogImage} />
+      <meta property="og:image:alt" content={`${settings.businessName} storefront`} />
       <meta property="og:url" content={canonical} />
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={seo.ogTitle || title} />

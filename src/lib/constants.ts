@@ -2,7 +2,7 @@
 export const SITE_SLUG = (import.meta.env.VITE_SITE_SLUG as string | undefined) ?? 'kocoon-wellness-spa'
 
 export const SITE_URL =
-  (import.meta.env.VITE_SITE_URL as string | undefined) ?? 'https://kocoonwellnessspa.vercel.app'
+  (import.meta.env.VITE_SITE_URL as string | undefined) ?? 'https://kocoon-wellness-spa.vercel.app'
 
 export const BAGUIO_GLOBE = '09151232418'
 export const BAGUIO_SMART = '09622188796'

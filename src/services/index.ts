@@ -172,9 +172,12 @@ export const siteService = {
       !seo.ogImage ||
       seo.ogImage.includes('logo.webp') ||
       seo.ogImage.includes('logo.jpg') ||
-      seo.ogImage.includes('logo-mark')
+      seo.ogImage.includes('logo-mark') ||
+      seo.ogImage === '/logo.png' ||
+      seo.ogImage.endsWith('/logo.png')
     ) {
-      seo.ogImage = '/logo.png'
+      seo.ogImage = '/og-image.jpg'
+      saveStore('seo', seo)
     }
     return seo
   },
