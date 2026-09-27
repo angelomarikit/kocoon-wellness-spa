@@ -8,7 +8,13 @@ import { Button } from '@/components/common/Button'
 import { Container } from '@/components/common/Container'
 import { Reveal } from '@/components/common/Reveal'
 import { SectionHeading } from '@/components/common/SectionHeading'
-import { BACLARAN_MESSENGER_URL, BAGUIO_MESSENGER_URL, buildMessengerLink, formatPhoneDisplay, toTelHref } from '@/lib/constants'
+import {
+  buildMessengerLink,
+  formatPhoneDisplay,
+  messengerUrlForBranch,
+  openMessengerChat,
+  toTelHref,
+} from '@/lib/constants'
 import { inquiryService } from '@/services'
 import type { Service, SiteSettings } from '@/types'
 
@@ -29,20 +35,6 @@ type FormValues = z.infer<typeof schema>
 interface ContactProps {
   settings: SiteSettings
   services: Service[]
-}
-
-function resolveMessengerUrl(settings: SiteSettings, branch: 'Baguio' | 'Baclaran'): string {
-  if (branch === 'Baclaran') {
-    const baclaran = (settings.messengerUrlBaclaran || '').trim()
-    // Never fall back to Baguio — wrong inbox. Use known-good Manila link.
-    if (!baclaran || baclaran.includes('1342439362286859')) return BACLARAN_MESSENGER_URL
-    return baclaran
-  }
-
-  const baguio = (settings.messengerUrl || '').trim()
-  // Same pattern as Manila: always land on the Baguio Page thread
-  if (!baguio || !baguio.includes('1141805542359287')) return BAGUIO_MESSENGER_URL
-  return baguio
 }
 
 export function Contact({ settings, services }: ContactProps) {
@@ -66,13 +58,8 @@ export function Contact({ settings, services }: ContactProps) {
   async function onSubmit(values: FormValues) {
     setSubmitting(true)
     try {
-      const pageLink = resolveMessengerUrl(settings, values.branch)
-      if (!pageLink) {
-        toast.error(
-          `Please add the ${values.branch} Facebook / Messenger link in Admin → Contact & Location first.`,
-        )
-        return
-      }
+      // Hard-coded Page threads — Baguio & Manila never depend on CMS drift
+      const messengerHref = buildMessengerLink(messengerUrlForBranch(values.branch))
 
       const fullMessage = [
         `Hello Kocoon Wellness Spa (${values.branch} branch)!`,
@@ -86,34 +73,27 @@ export function Contact({ settings, services }: ContactProps) {
         .filter((line) => line !== null)
         .join('\n')
 
-      // Short line for Messenger prefill (Facebook often strips long text= payloads)
-      const shortPrefill = `Hi Kocoon (${values.branch})! ${values.name} · ${values.phone} · ${values.service} · ${values.preferredDate}`
+      // Open Messenger first (sync) so pop-up blockers don't kill the Baguio chat.
+      openMessengerChat(messengerHref)
 
-      const messengerHref = buildMessengerLink(pageLink, shortPrefill)
-
-      await inquiryService.create({
-        name: values.name,
-        phone: values.phone,
-        email: values.email || '',
-        service: values.service,
-        preferredDate: values.preferredDate,
-        message: values.message,
-        branch: values.branch,
-      })
-
-      try {
-        await navigator.clipboard.writeText(fullMessage)
-      } catch {
-        // Clipboard may be blocked; Messenger still opens
-      }
+      void navigator.clipboard.writeText(fullMessage).catch(() => undefined)
 
       toast.success(
-        'Messenger opened. Tap Send in Messenger — the spa only sees it after you send. Full details were copied if you need to paste.',
-        { duration: 8000 },
+        `${values.branch} Messenger opened → paste your details if needed, then tap Send.`,
+        { duration: 9000 },
       )
 
-      // New tab keeps the website open; visitor must still press Send in Messenger
-      window.open(messengerHref, '_blank', 'noopener,noreferrer')
+      void inquiryService
+        .create({
+          name: values.name,
+          phone: values.phone,
+          email: values.email || '',
+          service: values.service,
+          preferredDate: values.preferredDate,
+          message: values.message,
+          branch: values.branch,
+        })
+        .catch((err) => console.warn('[contact] inquiry save failed', err))
     } catch {
       toast.error('Something went wrong. Please try again or call us.')
     } finally {
@@ -272,8 +252,10 @@ export function Contact({ settings, services }: ContactProps) {
                 {submitting ? 'Opening Messenger…' : 'Message on Facebook'}
               </Button>
               <p className="mt-3 text-xs text-muted">
-                Messenger will open in a new tab. If the message box is empty, paste (the form copies
-                your details) then tap Send. Nothing appears in the Facebook inbox until you send.
+                Baguio opens{' '}
+                <span className="text-cream">messages/t/1141805542359287</span>; Manila opens{' '}
+                <span className="text-cream">messages/t/1342439362286839</span>. Paste your details
+                if needed, then tap <span className="text-cream">Send</span> in Messenger.
               </p>
             </form>
           </Reveal>

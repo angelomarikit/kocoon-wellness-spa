@@ -2,7 +2,12 @@ import { MessageCircle, Phone } from 'lucide-react'
 import { Button } from '@/components/common/Button'
 import { Container } from '@/components/common/Container'
 import { Reveal } from '@/components/common/Reveal'
-import { buildMessengerLink, formatPhoneDisplay, toTelHref } from '@/lib/constants'
+import {
+  BAGUIO_MESSENGER_URL,
+  buildMessengerLink,
+  formatPhoneDisplay,
+  toTelHref,
+} from '@/lib/constants'
 import type { BookingCtaContent, SiteSettings } from '@/types'
 
 interface BookingCtaProps {
@@ -12,6 +17,7 @@ interface BookingCtaProps {
 
 export function BookingCta({ content, settings }: BookingCtaProps) {
   const primary = settings.phoneGlobe || settings.phone
+  const baguioMessenger = buildMessengerLink(BAGUIO_MESSENGER_URL)
 
   return (
     <section id="booking" className="relative overflow-hidden border-y border-gold/15">
@@ -29,21 +35,10 @@ export function BookingCta({ content, settings }: BookingCtaProps) {
             <Button href="#contact" variant="secondary" size="lg">
               {content.secondaryButton}
             </Button>
-            {settings.messengerUrl ? (
-              <Button
-                href={buildMessengerLink(settings.messengerUrl)}
-                variant="outline"
-                size="lg"
-              >
-                <MessageCircle className="h-4 w-4" />
-                {content.tertiaryButton}
-              </Button>
-            ) : (
-              <Button href="#contact" variant="outline" size="lg">
-                <MessageCircle className="h-4 w-4" />
-                {content.tertiaryButton}
-              </Button>
-            )}
+            <Button href={baguioMessenger} variant="outline" size="lg">
+              <MessageCircle className="h-4 w-4" />
+              {content.tertiaryButton}
+            </Button>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm tracking-wide text-gold">
             <a href={toTelHref(primary)} className="transition hover:text-gold-soft">

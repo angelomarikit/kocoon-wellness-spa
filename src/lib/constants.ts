@@ -48,6 +48,9 @@ export function formatPhoneDisplay(phone: string): string {
  * Build a Facebook Messenger deep link (no Facebook App / Graph API required).
  * Accepts m.me URL, facebook.com/messages/t/{pageId}, facebook page URL, or page ID.
  *
+ * For facebook.com/messages/t/{id} we keep that exact URL (same format the spa uses).
+ * Converting those IDs to m.me/ breaks some Pages (Baguio) even when Manila works.
+ *
  * Important: this only OPENS a chat. Facebook will not put anything in the Page inbox
  * until the visitor taps Send in Messenger.
  */
@@ -62,7 +65,8 @@ export function buildMessengerLink(pageUrlOrId: string, prefilledText?: string):
   const pageMatch = base.match(/facebook\.com\/(?:profile\.php\?id=)?([^/?#]+)/i)
 
   if (threadMatch?.[1]) {
-    base = `https://m.me/${threadMatch[1]}`
+    // Keep the exact Page thread URL — do NOT rewrite to m.me/{id}
+    base = `https://www.facebook.com/messages/t/${threadMatch[1]}`
   } else if (mMeMatch?.[1]) {
     base = `https://m.me/${mMeMatch[1]}`
   } else if (/facebook\.com\//i.test(base) && pageMatch?.[1] && pageMatch[1] !== 'messages') {
@@ -71,9 +75,25 @@ export function buildMessengerLink(pageUrlOrId: string, prefilledText?: string):
     base = `https://m.me/${base.replace(/^@/, '')}`
   }
 
-  if (!prefilledText?.trim()) return base
+  // Prefill only works reliably on m.me links. For messages/t/ URLs the form
+  // copies the full inquiry to the clipboard instead.
+  if (!prefilledText?.trim() || threadMatch) return base
 
-  // Keep prefill short — long multi-line payloads are often dropped by Messenger.
   const text = prefilledText.trim().replace(/\s+/g, ' ').slice(0, 280)
   return `${base}?text=${encodeURIComponent(text)}`
+}
+
+/** Canonical inquiry Messenger targets — ignore corrupted CMS values. */
+export function messengerUrlForBranch(branch: 'Baguio' | 'Baclaran'): string {
+  return branch === 'Baclaran' ? BACLARAN_MESSENGER_URL : BAGUIO_MESSENGER_URL
+}
+
+/** Open Messenger; fall back if the browser blocks window.open. */
+export function openMessengerChat(url: string): boolean {
+  if (!url) return false
+  const popup = window.open(url, '_blank', 'noopener,noreferrer')
+  if (popup) return true
+  // Popup blocked — navigate this tab
+  window.location.assign(url)
+  return true
 }
