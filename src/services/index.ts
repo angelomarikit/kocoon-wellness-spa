@@ -41,19 +41,16 @@ function ts(value?: string): number {
   return Number.isFinite(n) ? n : 0
 }
 
-/** Prefer this browser's saved CMS when it is newer or remote is still the SQL seed. */
+/** Only push this browser’s CMS when remote is empty or clearly older. Never overwrite newer cloud edits. */
 function shouldPushLocalToRemote(opts: {
   storeKey: string
   localUpdatedAt?: string
   remoteUpdatedAt?: string
   localLooksCustom: boolean
-  remoteLooksSeed: boolean
 }): boolean {
   if (!hasStore(opts.storeKey)) return false
-  if (!opts.remoteUpdatedAt && opts.localLooksCustom) return true
-  if (ts(opts.localUpdatedAt) > ts(opts.remoteUpdatedAt)) return true
-  if (opts.localLooksCustom && opts.remoteLooksSeed) return true
-  return false
+  if (!opts.remoteUpdatedAt) return opts.localLooksCustom
+  return ts(opts.localUpdatedAt) > ts(opts.remoteUpdatedAt)
 }
 
 export const siteService = {
@@ -69,10 +66,10 @@ export const siteService = {
             storeKey: 'settings',
             localUpdatedAt: localRaw.updatedAt,
             remoteUpdatedAt: remote?.updatedAt,
-            localLooksCustom: localRaw.businessName !== mockSettings.businessName ||
+            localLooksCustom:
+              localRaw.businessName !== mockSettings.businessName ||
               localRaw.logoUrl !== mockSettings.logoUrl ||
               localRaw.phone !== mockSettings.phone,
-            remoteLooksSeed: !remote || remote.logoUrl === mockSettings.logoUrl,
           })
         ) {
           try {
@@ -216,7 +213,6 @@ export const siteService = {
             remoteUpdatedAt: remote?.updatedAt,
             localLooksCustom:
               localRaw.title !== mockSEO.title || localRaw.ogImage !== mockSEO.ogImage,
-            remoteLooksSeed: !remote || remote.title === mockSEO.title,
           })
         ) {
           try {
@@ -274,6 +270,8 @@ export const siteService = {
     if (canUseSupabaseCms()) {
       try {
         const remote = await supabaseCms.getPageContent()
+        // Cloud is source of truth for the live site. Only upload local when
+        // remote is missing or this browser has a strictly newer Save timestamp.
         if (
           localRaw &&
           shouldPushLocalToRemote({
@@ -282,11 +280,9 @@ export const siteService = {
             remoteUpdatedAt: remote?.updatedAt,
             localLooksCustom:
               localRaw.hero?.title !== mockPageContent.hero.title ||
-              localRaw.hero?.description !== mockPageContent.hero.description ||
+              localRaw.about?.title !== mockPageContent.about.title ||
+              localRaw.about?.description !== mockPageContent.about.description ||
               localRaw.welcome?.heading !== mockPageContent.welcome.heading,
-            remoteLooksSeed:
-              !remote?.hero ||
-              remote.hero.title === mockPageContent.hero.title,
           })
         ) {
           try {
@@ -298,6 +294,11 @@ export const siteService = {
             return saved
           } catch (err) {
             console.warn('[cms] page content local→remote sync failed', err)
+            // Prefer remote if present so live visitors are not stuck on stale local
+            if (remote?.hero) {
+              saveStore('pageContent', remote)
+              return remote
+            }
             return localRaw
           }
         }
@@ -355,16 +356,34 @@ export const siteService = {
   },
 
   async updatePageContent(patch: Partial<PageContent>): Promise<PageContent> {
-    await delay(40)
-    const current = await this.getPageContent()
-    const next = { ...current, ...patch, updatedAt: new Date().toISOString() }
-    if (canUseSupabaseCms()) {
-      const saved = await supabaseCms.savePageContent(next)
-      saveStore('pageContent', saved)
-      return saved
+    // Save what the admin submitted — do not re-fetch first (that was slow and
+    // could race with stale localStorage overwriting About / other sections).
+    const base = hasStore('pageContent')
+      ? loadStore('pageContent', mockPageContent)
+      : structuredClone(mockPageContent)
+    const next: PageContent = {
+      ...base,
+      ...patch,
+      hero: patch.hero ?? base.hero,
+      welcome: patch.welcome ?? base.welcome,
+      about: patch.about ?? base.about,
+      whyChoose: patch.whyChoose ?? base.whyChoose,
+      experience: patch.experience ?? base.experience,
+      bookingCta: patch.bookingCta ?? base.bookingCta,
+      footer: patch.footer ?? base.footer,
+      updatedAt: new Date().toISOString(),
     }
-    saveStore('pageContent', next)
-    return next
+
+    if (!canUseSupabaseCms()) {
+      saveStore('pageContent', next)
+      throw new Error(
+        'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY so About and other sections update on the live site.',
+      )
+    }
+
+    const saved = await supabaseCms.savePageContent(next)
+    saveStore('pageContent', saved)
+    return saved
   },
 
   async getDashboardStats(): Promise<DashboardStats> {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SEOHead } from '@/components/common/SEOHead'
 import { Footer } from '@/components/layout/Footer'
 import { Header } from '@/components/layout/Header'
@@ -62,10 +62,16 @@ export function HomePage() {
   const [testimonials, setTestimonials] = useState<Testimonial[]>([])
   const [faqs, setFaqs] = useState<FAQItem[]>([])
   const [loading, setLoading] = useState(true)
+  const loadedOnce = useRef(false)
 
   useEffect(() => {
     let mounted = true
-    async function load() {
+    let lastFetch = 0
+
+    async function load(opts?: { soft?: boolean }) {
+      const now = Date.now()
+      if (opts?.soft && now - lastFetch < 2000) return
+      lastFetch = now
       try {
         const [s, se, c, svc, st, g, t, f] = await Promise.all([
           safe(() => siteService.getSettings(), mockSettings),
@@ -86,9 +92,10 @@ export function HomePage() {
         setGallery(g)
         setTestimonials(t)
         setFaqs(f)
+        loadedOnce.current = true
       } catch (err) {
         console.warn('[home] unexpected load error', err)
-        if (!mounted) return
+        if (!mounted || loadedOnce.current) return
         setSettings(mockSettings)
         setSeo(mockSEO)
         setContent(mockPageContent)
@@ -98,12 +105,27 @@ export function HomePage() {
         setTestimonials(mockTestimonials.filter((x) => x.published))
         setFaqs(mockFaqs.filter((x) => x.active))
       } finally {
-        if (mounted) setLoading(false)
+        if (mounted && !opts?.soft) setLoading(false)
       }
     }
+
     void load()
+
+    // Re-fetch when the tab becomes visible so admin CMS edits show on the live site
+    // without waiting for a hard reload or getting stuck on a stale first paint.
+    function onVisible() {
+      if (document.visibilityState === 'visible') void load({ soft: true })
+    }
+    function onFocus() {
+      void load({ soft: true })
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onFocus)
+
     return () => {
       mounted = false
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onFocus)
     }
   }, [])
 
@@ -130,17 +152,17 @@ export function HomePage() {
         <Hero content={content.hero} />
         <Welcome content={content.welcome} />
         <About content={content.about} />
-        <Services services={services} />
         <WhyChoose content={content.whyChoose} />
+        <Services services={services} />
         <Experience content={content.experience} />
         <Team staff={staff} />
         <Gallery items={gallery} />
         <Testimonials items={testimonials} />
-        <BookingCta content={content.bookingCta} settings={settings} />
-        <Contact settings={settings} services={services} />
+        <BookingCta content={content.bookingCta} />
         <FAQ items={faqs} />
+        <Contact settings={settings} />
       </main>
-      <Footer settings={settings} content={content} />
+      <Footer settings={settings} content={content.footer} />
     </>
   )
 }

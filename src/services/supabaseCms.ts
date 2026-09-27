@@ -33,7 +33,7 @@ async function siteIdOrThrow(): Promise<string> {
 }
 
 async function timed<T>(fn: () => Promise<T>): Promise<T> {
-  return withTimeout(fn(), 5000)
+  return withTimeout(fn(), 8000)
 }
 
 function mapStaff(row: Record<string, unknown>, siteId: string): StaffMember {

@@ -32,7 +32,7 @@ export function ContentManager() {
     try {
       const next = await siteService.updatePageContent(content)
       setContent(next)
-      toast.success('Page content saved to cloud')
+      toast.success('Saved to cloud. Open or refresh the live site to see About update.')
     } catch (err) {
       toast.error(
         err instanceof Error
