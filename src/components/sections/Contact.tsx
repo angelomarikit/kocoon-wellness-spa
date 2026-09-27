@@ -16,11 +16,9 @@ const schema = z.object({
   name: z.string().min(2, 'Please enter your name'),
   phone: z.string().min(7, 'Please enter a valid phone number'),
   email: z.union([z.string().email('Please enter a valid email'), z.literal('')]),
-  branch: z
-    .string()
-    .refine((v): v is 'Baguio' | 'Baclaran' => v === 'Baguio' || v === 'Baclaran', {
-      message: 'Please select a branch',
-    }),
+  branch: z.enum(['Baguio', 'Baclaran'], {
+    message: 'Please select a branch',
+  }),
   service: z.string().min(1, 'Please select a service'),
   preferredDate: z.string().min(1, 'Please choose a preferred date'),
   message: z.string().min(5, 'Please add a short message'),
@@ -57,7 +55,6 @@ export function Contact({ settings, services }: ContactProps) {
       name: '',
       phone: '',
       email: '',
-      branch: '',
       service: '',
       preferredDate: '',
       message: '',
