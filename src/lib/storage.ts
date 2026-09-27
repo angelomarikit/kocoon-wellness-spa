@@ -85,9 +85,12 @@ export async function uploadSiteImage(
 
   const base = getSupabaseUrl()!
   const key = getSupabaseAnonKey()!
-  if (!key.startsWith('eyJ') && !key.startsWith('sb_')) {
+  if (!key) {
+    throw new Error('VITE_SUPABASE_ANON_KEY is empty. Paste the anon key from the same Supabase project as the URL.')
+  }
+  if (!key.startsWith('eyJ') && !key.startsWith('sb_publishable_') && !key.startsWith('sb_')) {
     throw new Error(
-      'VITE_SUPABASE_ANON_KEY looks invalid. In Supabase → Project Settings → API, copy the anon/public key.',
+      'VITE_SUPABASE_ANON_KEY looks invalid. In Supabase → Project Settings → API, copy anon/public.',
     )
   }
 
@@ -125,11 +128,11 @@ export async function uploadSiteImage(
 
 function formatStorageError(message: string): string {
   const lower = message.toLowerCase()
-  if (lower.includes('failed to fetch') || lower.includes('network')) {
+  if (lower.includes('failed to fetch') || lower.includes('network') || lower.includes('could not be resolved')) {
     return (
-      'Storage upload failed: network/CORS error. Confirm VITE_SUPABASE_URL is correct, ' +
-      'use the anon public key from Supabase → Settings → API, run 002 + 003 storage SQL, ' +
-      'and check the kocoon-media bucket exists.'
+      `Storage upload failed talking to ${getSupabaseUrl() || '(missing URL)'}. ` +
+      'Use Project URL https://aruyymezzgiflwyhhyvl.supabase.co and the anon key from THAT same project ' +
+      '(Settings → API). Then redeploy. Bucket SQL alone is not enough if URL/key are from another project.'
     )
   }
   if (lower.includes('row-level security') || lower.includes('policy') || lower.includes('403')) {
